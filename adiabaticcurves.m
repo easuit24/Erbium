@@ -128,6 +128,7 @@ for i = 1:10
 end 
 xlabel('Interatomic Separation (a0)') 
 ylabel('Energy (K)') 
+legend('Adiabatic Curves', 'Diabatic Curves') 
 
 
 

@@ -17,7 +17,7 @@ Basis = 'This time its the Uncoupled Lab Frame Basis';
 %  all angular momentum quantum numbers doubled
 %  uncoupled lab frame
 Lmin = 0;
-Lmax = 4; % previously 16 to see resonances
+Lmax = 32;
 %Lmax = 16; 
 m1_incident = -12;
 m2_incident = -12;  
@@ -141,8 +141,7 @@ for iULF = 1 : numULF
     % the following matrices are diagonal in the lab frame! thence only
     % nonzero on the diagonals 
     TKmat(iULF,iULF) = hbar^2*L*(L+2)/4/(2*mass);  % L is dojbled!
-    HBmat(iULF,iULF) = (gfactor*(m1+m2)/2 - E_thresh);    %  m1, m2 are doubled!   
-    %HBmat(iULF,iULF) = (gfactor*(m1+m2)/2 - E_thresh)/10e5;
+    HBmat(iULF,iULF) = (gfactor*(m1+m2)/2 - E_thresh)/10^5;    %  m1, m2 are doubled!    
 end
 HBmat;
 

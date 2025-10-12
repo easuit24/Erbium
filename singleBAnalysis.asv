@@ -12,7 +12,7 @@ setup
 % magnetic field parameters to scan over 
 dBField = 0.5;
 BFieldlo = 1.0;
-BFieldhi = 20.0;
+BFieldhi = 70.0;
 %BFieldhi = .0;
 numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
 BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
@@ -96,8 +96,7 @@ for iBF  = iBFstart :  numBF
         end 
 
     end
-    total_inelastic_crosssection = sum(inelastic_crosssection); 
-    Kmat_channels_inelastic(iBF) = hbar*ki*total_inelastic_crosssection/mass;
+    Kmat_channels_inelastic(iBF) = hbar*ki*crosssection/mass;
     
     
     arealmat(iBF) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
@@ -134,15 +133,6 @@ hold on
 %loglog(BFields*b0, inelastic, 'r-', 'LineWidth', 1, 'LineStyle', '--');
 xlabel('B (Gauss)');
 ylabel('Rate constant (cm^3/s)');
-
-
-% Now for the inelastic part 
-figure;
-loglog(BFields*b0, Kmat_channels_inelastic*l0^3/tau0, 'r-', 'LineWidth', 2);
-
-xlabel('B (Gauss)');
-ylabel('Rate constant (cm^3/s)');
-
 
 
 %%% Plot the adiabatic and diabatic curves 

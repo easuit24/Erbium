@@ -1,67 +1,37 @@
-%  S versus E
-% energy-dependent scattering of Er atoms, or
-%  whatever Hamiltonian was provided
-%  IN THIS FILE
-%    YOU get to choose energy
-%    YOU get to choose magnetic field range
-%    YOU WILL have the time of your life
+% This file iterates over the energies to analyze the relationship between
+% the energy and a single magnetic field 
 
-setup
+setup 
 
-%  define the actual grid you want results on
-% magnetic field parameters to scan over 
-dBField = 0.5;
-BFieldlo = 1.0;
-BFieldhi = 20.0;
-%BFieldhi = .0;
-numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
-BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
+BField = 50.0/b0; 
+energies = logspace(-16,-12, 10); 
 
-task = 0 ;  %  0 if start from beginning, 1 from other
-iBFstart = 1;
-if task == 1
-    ss = open("Ldata.mat");
-    arealmat = ss.arealmat;
-    aimagmat = ss.aimagmat;
-    BFields_gauss = ss.BFields_gauss;
-    BFields = BFields_gauss/b0;
-    iBFstart = length(BFields_gauss) + 1;
-end
-
-%  set parameters for numerical propagation
-energy = 1.d-6/t0;  %a safe bet
-energy = 1.d-9/t0; % for only opening the -6 -6 channel 
-%energy = 1.d-7/t0; % for iopening the -5 -5 channel 
-
+% for numerics 
 rstart = 10.0;
 dr = 0.001;
 %rgo = 1000.0; % for testing
+%rgo = 10000.0;
 rgo = 10000.0;
 Fixed_Step_Size = false;
 scale = 50.d0;   
 
 ymat_initial = 1.e20*eye(numfun,numfun);
+thresholds = diag(HBmat)*BField;
 
-% loop over magnetic fields
-for iBF  = iBFstart :  numBF
-    BField = BFields_gauss_array(iBF)/b0;  %  convert to au here
-    BFields(iBF) = BField;
-    thresholds = diag(HBmat)*BField;
-    % Do scattering for each magnetic field value - get a new Smat each
-    % time 
+for iEn = 1:length(energies)
+    % scattering result 
     [Smat, Kmat, QN_open, thresholds_open ] ...
-              = scatter(mass, C6, MeanC12, Angular_QN_ULF, ...
-                        TKmat, C12mat, C8mat, ...
-                        C6mat, C3mat, HBmat, ...
-                        BField, energy, thresholds, ...
-                        rstart, dr, rgo, ...
-                        Fixed_Step_Size, scale, ...
-                        ymat_initial);
-    %toc
+          = scatter(mass, C6, MeanC12, Angular_QN_ULF, ...
+                    TKmat, C12mat, C8mat, ...
+                    C6mat, C3mat, HBmat, ...
+                    BField, energies(iEn), thresholds, ...
+                    rstart, dr, rgo, ...
+                    Fixed_Step_Size, scale, ...
+                    ymat_initial);
+
     numopen = length(thresholds_open);
-%     disp("numopen:")
-%     disp(numopen)
-    %  find incident channel among the newly-indexed open ones
+    
+    % loop to find incident channel 
     for i = 1: numopen
         if QN_open(i,1) == Angular_QN_ULF(incident,1) & ...
            QN_open(i,2) == Angular_QN_ULF(incident,2) & ...
@@ -71,116 +41,98 @@ for iBF  = iBFstart :  numBF
            elasticIndex(iBF) = is; 
         end 
     end
-%     fprintf('B = %.3f G, numopen = %d, incident channel index = %d\n', BField*b0, numopen, is);
-%     disp(QN_open(is,:))
-
-
-    %%%%%%%
     
-    
-    ki = sqrt(2*mass*energy/hbar^2); % wavenumber
+    % calculate the rate constant here 
+    ki = sqrt(2*mass*energies(iEn)/hbar^2); % wavenumber
+    ki_arr(iEn) = ki; 
     for j = 1:numopen
-        %g = 2; 
-        %Sii = Smat(is,is);
+        g = 1; 
+        Sii = Smat(is,is);
+        phase(iEn) = 0.5*angle(Sii); 
 
         if j == is
-            g = 2; 
-            Sii = Smat(is,is);
             crosssection = g*pi*abs(1 - Sii)^2/ki^2;
-            Kmat_channels(iBF) = hbar*ki * crosssection/mass;
-        else
-            g = 1; 
-            Sij = Smat(is, j); 
-            inelastic_crosssection(j) = g*pi*abs(Sij)^2/ki^2; 
-            
+            crosssection_arr(iEn) = crosssection; 
+            Kmat_channels(iEn) = hbar*ki * crosssection/mass;
         end 
 
-    end
-    total_inelastic_crosssection = sum(inelastic_crosssection); 
-    Kmat_channels_inelastic(iBF) = hbar*ki*total_inelastic_crosssection/mass;
+    end 
+    arealmat(iEn) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
+    aimagmat(iEn) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
+    abarmat(iEn) = abar;
     
-    
-    arealmat(iBF) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
-    aimagmat(iBF) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
-    abarmat(iBF) = abar;
-    clear Smat Kmat
-    %Smat_all(iBF,:,:) = Smat;
-    %Tmat(iBF,:,:) = 1i*(Smat-eye(numopen,numopen));
-
-    BFields_gauss = BFields*b0;
-    save("Ldata.mat", "BFields_gauss", "arealmat", "aimagmat")
 end
 
-
-figure(1);
-plot(BFields*b0,arealmat,'b',linewidth=2)
-hold on
-plot(BFields*b0,aimagmat,'r',linewidth=2)
-plot(BFields*b0,abarmat,'--k',linewidth=2)
-xlabel('B (Gauss)')
-ylabel('length (a_0)')
-hold off
- 
-figure;
-%loglog(BFields*b0, Kmat_channels(:,is), 'r-', 'LineWidth', 2); % elastic
-loglog(BFields*b0, Kmat_channels*l0^3/tau0, 'r-', 'LineWidth', 2);
-hold on
-%plot(BFields*b0, Kmat_channels(:,1), '--', 'LineWidth', 1.5)
-% for j = 1:numopen
-%     if j ~= is
-%         plot(BFields*b0, Kmat_channels(:,j), '--', 'LineWidth', 1.5);
-%     end
-% end
-%loglog(BFields*b0, inelastic, 'r-', 'LineWidth', 1, 'LineStyle', '--');
-xlabel('B (Gauss)');
-ylabel('Rate constant (cm^3/s)');
+% TODO:
+% Look at the rate of collision more closely for square root dependence
+% Look at plotting the cross section vs. energy to see constant dependence
 
 
-% Now for the inelastic part 
-figure;
-loglog(BFields*b0, Kmat_channels_inelastic*l0^3/tau0, 'r-', 'LineWidth', 2);
+% plot the collision energy as a function of incident energy
+p = polyfit(log(energies*t0), log(Kmat_channels*l0^3/tau0), 1);
+logy_fit = polyval(p, log(energies*t0)); 
+% figure; 
+% hold on
+% loglog(energies*t0, Kmat_channels*l0^3/tau0, 'b-', 'LineWidth', 2)
+% loglog(energies*t0, exp(logy_fit), '--r'); 
+% xlabel('Energy (Kelvin)') 
+% ylabel('Rate Constant (cm^3/s)') 
+% title('Rate Constant vs. Energy') 
+% plot the phase as a function of wavenumber k 
+% first fit the slope to see if it matches the scattering length 
 
-xlabel('B (Gauss)');
-ylabel('Rate constant (cm^3/s)');
+% we do indeed find that the slope is 1/2 implying that there is the
+% correct square root dependence here 
+figure
+loglog(energies*t0, exp(logy_fit), 'r-'); 
+hold on 
+loglog(energies*t0, Kmat_channels*l0^3/tau0, '--b', 'LineWidth', 2)
+xlabel('Energy [Kelvin]')
+ylabel('Rate Constant [cm^3/s]') 
+title('Rate Constant vs. Energy') 
+legend('Fit', 'True Data')
+
+% Cross Section
+figure
+hold on 
+loglog(energies*t0, crosssection_arr*l0^2, '--b', 'LineWidth', 2)
+xlabel('Energy [Kelvin]')
+ylabel('Cross Section [cm^3/s]') 
+title('Cross Section vs. Energy') 
+legend('Fit', 'True Data')
+%% 
 
 
-
-%%% Plot the adiabatic and diabatic curves 
-% Now, let's look at diabatic curves 
-
-
-%Diabatic Curves 
-R_range = linspace(10,30);
-diabatic_energies = zeros(length(R_range), length(C6mat)); 
-H_TBO_full = zeros(length(R_range), length(C6mat), length(C6mat));
-energy_full = zeros(length(R_range), length(C6mat)); 
-for rtest = 1:length(R_range)
-
-    %H_TBO_full(r, :, :) = TKmat/R_range(r)^2 + C3mat/R_range(r)^3 + C6mat/R_range(r)^6 + C12mat/R_range(r)^12 + HBmat;
-    H_TBO_full(rtest,:,:) = potmat(BFields(5), R_range(rtest), TKmat, C12mat, C8mat, C6mat, C3mat, HBmat); 
-    energy_full(rtest, :) = sort(eig(squeeze(H_TBO_full(rtest, :, :))), 'ascend') ;
-    diag_elements = diag(squeeze(H_TBO_full(rtest, :, :)));
-    %energy_full(r, :) = sort(eig(squeeze(H_TBO_full(r, :, :))), 'ascend') ; 
-    
-   diabatic_energies(rtest, :) = sort(diag_elements, 'ascend') ; 
-    
-
-
-end
-
+% p = polyfit(ki_arr(70:100)/l0, phase(70:100), 1); %this yields scattering length = -3.037e+6
+% y_fit = polyval(p, ki_arr/l0); 
 figure; 
+plot(ki_arr/l0, phase, 'b-', 'LineWidth', 2)
 hold on
-for i = 1:10
-    semilogx(R_range, energy_full(:,i)*t0, linestyle = '--')
-    semilogx(R_range, diabatic_energies(:,i)*t0) 
-end 
-xlabel('Interatomic Separation (a0)') 
-ylabel('Energy (K)') 
-legend('Adiabatic Curves', 'Diabatic Curves') 
+plot(ki_arr/l0, y_fit, 'r-', 'LineWidth', 2)
+ylabel('Wavenumber [1/cm]') 
+xlabel('Phase [rad]') 
+title('Phase vs. Wavenumber') 
 
+% plot the scattering lengths as a function of energy 
+figure; 
+plot(energies*t0, arealmat, 'b-', 'LineWidth', 2)
+hold on
+plot(energies*t0, aimagmat, 'r-', 'LineWidth', 2) 
+plot(energies*t0, ones(length(energies))*abar, '--k', 'LineWidth', 2)
+title('Scattering Length vs. Energy') 
+xlabel('Energy [Kelvin]') 
+ylabel('Scattering Length') 
 
-disp('a happy ending')
-
+% plot cross section as a function of scattering length 
+figure; 
+plot(arealmat, crosssection_arr, 'b-', 'LineWidth', 2)
+hold on
+plot(aimagmat, crosssection_arr, 'r-', 'LineWidth', 2) 
+plot(arealmat.^2 + aimagmat.^2, crosssection_arr, 'g-', 'LineWidth', 2) 
+plot(abar*ones(length(energies)), crosssection_arr, '--k', 'LineWidth', 2)
+xlabel('Cross Section [a0]') 
+ylabel('Scattering Length') 
+title('Scattering Length vs. Cross Section') 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -223,7 +175,7 @@ while r < rgo
     else     
         %Vtemp = potlocal(r);
         %V_local = eigs(Vtemp,1,'smallestreal'); 
-        V_local = MeanC12/r^12 - C6/r^6; %%%% Look at this more closely - how is the potential curve being defined?????
+        V_local = MeanC12/r^12 - C6/r^6;
         if energy-V_local <= 0
             %  nothing; de Broglie wavelength is imaginary
         else   % dr is fraction of local deBroglie wavelength
@@ -316,10 +268,9 @@ del = eye(size(ymat));
 
 % first, a "Johnson correction"
 V = potlocal(r);
- 
 %k2 = 2*mass*(energy*del-V);   % squared wave number
 ymat = ymat - (h/3.0)*(2*mass*(energy*del-V));
-clear V 
+clear V
 
 % first half step
 V = potlocal(r+h);
@@ -365,4 +316,3 @@ ysp = (nu/x)*( sqrt(pi/2/x) * bessely(nu+1/2,x) )...
               -sqrt(pi/2/x) * bessely(nu+1/2+1,x);
 
 end
-
