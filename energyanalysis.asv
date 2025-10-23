@@ -4,7 +4,7 @@
 setup 
 
 BField = 50.0/b0; 
-energies = logspace(-16,-12, 10); 
+energies = logspace(-20,-6, 20); 
 
 % for numerics 
 rstart = 10.0;
@@ -91,15 +91,18 @@ xlabel('Energy [Kelvin]')
 ylabel('Rate Constant [cm^3/s]') 
 title('Rate Constant vs. Energy') 
 legend('Fit', 'True Data')
+hold off 
 
-% Cross Section
+% Cross Section: We do find that this is constant! 
 figure
-hold on 
+
 loglog(energies*t0, crosssection_arr*l0^2, '--b', 'LineWidth', 2)
+hold on 
 xlabel('Energy [Kelvin]')
 ylabel('Cross Section [cm^3/s]') 
-title('Cross Section vs. Energy') 
-legend('Fit', 'True Data')
+title('Cross Section vs. Energy Plot') 
+legend('True Data')
+hold off
 %% 
 
 

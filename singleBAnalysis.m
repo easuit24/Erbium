@@ -12,7 +12,7 @@ setup
 % magnetic field parameters to scan over 
 dBField = 0.5;
 BFieldlo = 1.0;
-BFieldhi = 20.0;
+BFieldhi = 50.0;
 %BFieldhi = .0;
 numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
 BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
@@ -31,7 +31,8 @@ end
 %  set parameters for numerical propagation
 energy = 1.d-6/t0;  %a safe bet
 energy = 1.d-9/t0; % for only opening the -6 -6 channel 
-%energy = 1.d-7/t0; % for iopening the -5 -5 channel 
+
+%energy = 5.d-3/t0; % for iopening the -5 -5 channel 
 
 rstart = 10.0;
 dr = 0.001;
@@ -134,11 +135,13 @@ hold on
 %loglog(BFields*b0, inelastic, 'r-', 'LineWidth', 1, 'LineStyle', '--');
 xlabel('B (Gauss)');
 ylabel('Rate constant (cm^3/s)');
+title('Elastic, rg0 = 10000'); 
 
 
 % Now for the inelastic part 
 figure;
 loglog(BFields*b0, Kmat_channels_inelastic*l0^3/tau0, 'r-', 'LineWidth', 2);
+title('Inelastic, rg0 = 10000'); 
 
 xlabel('B (Gauss)');
 ylabel('Rate constant (cm^3/s)');

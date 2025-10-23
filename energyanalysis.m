@@ -4,7 +4,7 @@
 setup 
 
 BField = 50.0/b0; 
-energies = logspace(-16,-12, 10); 
+energies = logspace(-20,-6, 20); 
 
 % for numerics 
 rstart = 10.0;
@@ -63,9 +63,9 @@ for iEn = 1:length(energies)
     
 end
 
-% TODO:
-% Look at the rate of collision more closely for square root dependence
-% Look at plotting the cross section vs. energy to see constant dependence
+
+
+scat = phase(1:15)*l0./ki_arr(1:15); 
 
 
 % plot the collision energy as a function of incident energy
@@ -91,15 +91,19 @@ xlabel('Energy [Kelvin]')
 ylabel('Rate Constant [cm^3/s]') 
 title('Rate Constant vs. Energy') 
 legend('Fit', 'True Data')
+hold off 
 
 % Cross Section: We do find that this is constant! 
 figure
+
+loglog(energies*t0, crosssection_arr*l0^2, 'b-', 'LineWidth', 2)
 hold on 
-loglog(energies*t0, crosssection_arr*l0^2, '--b', 'LineWidth', 2)
+loglog(energies(1:length(scat))*t0, 4*pi*scat.^2, '--r', 'LineWidth', 2) 
 xlabel('Energy [Kelvin]')
-ylabel('Cross Section [cm^3/s]') 
-title('Cross Section vs. Energy') 
-legend('Fit', 'True Data')
+ylabel('Cross Section [cm^2]') 
+title('Cross Section vs. Energy Plot') 
+legend('True Data')
+hold off
 %% 
 
 

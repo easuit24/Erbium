@@ -19,7 +19,8 @@ ThresholdEns = zeros(numBF, length(HBmat));
 mArr = -12:2:12;  
 % thresholds 
 targetQN = [-10,-10,4,-4]; % choose the channel to be the baseline 
-energy = 1.d-9/t0 % collision energy
+targetQN = [-12,-12,0,0];
+energy = 5.d-3/t0 % collision energy
 
 
 for mi = 1:length(mArr)
@@ -44,15 +45,22 @@ for iBF = 1:numBF
     ThresholdEns(iBF,:) = diag(HBmat)*BFields(iBF) ; 
 end
 
+
+
 % plot the threshold energies
 figure;
 hold on
+legend_labels = cell(length(HBmat), 1);
 for i = 1:length(HBmat)
-    plot(BFields*b0, ThresholdEns(:,i)*t0)
+    
+%     legend_labels(i) = sprintf('Val1: %.2f, Val2: %.2f, Val3: %.2f, Val4: %.2f', ...
+%         Angular_QN_ULF(i, 1), Angular_QN_ULF(i, 2), Angular_QN_ULF(i, 3), Angular_QN_ULF(i, 4));
+    plot(BFields*b0, ThresholdEns(:,i)*t0-base_thresholds*t0)
 end
 plot(BFields*b0, ones(length(BFields))*energy*t0, 'LineWidth', 2, linestyle = '--');
 xlabel('B [Gauss]') 
 ylabel('Threshold Energy [Kelvin]')
+
 
 % plotting
 % figure; 
