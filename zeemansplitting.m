@@ -20,7 +20,8 @@ mArr = -12:2:12;
 % thresholds 
 targetQN = [-10,-10,4,-4]; % choose the channel to be the baseline 
 targetQN = [-12,-12,0,0];
-energy = 5.d-3/t0 % collision energy
+%energy = 1.6.d-3/t0 % collision energy
+energy = 1.6e-8 
 
 
 for mi = 1:length(mArr)
@@ -55,11 +56,33 @@ for i = 1:length(HBmat)
     
 %     legend_labels(i) = sprintf('Val1: %.2f, Val2: %.2f, Val3: %.2f, Val4: %.2f', ...
 %         Angular_QN_ULF(i, 1), Angular_QN_ULF(i, 2), Angular_QN_ULF(i, 3), Angular_QN_ULF(i, 4));
-    plot(BFields*b0, ThresholdEns(:,i)*t0-base_thresholds*t0)
+    if Angular_QN_ULF(i,1) == -8 && Angular_QN_ULF(i,2) == -8 
+        plot(BFields*b0, ThresholdEns(:,i)*t0-base_thresholds*t0, 'LineWidth', 3)
+    else
+        plot(BFields*b0, ThresholdEns(:,i)*t0-base_thresholds*t0, 'LineWidth', 1)
+    end 
 end
 plot(BFields*b0, ones(length(BFields))*energy*t0, 'LineWidth', 2, linestyle = '--');
 xlabel('B [Gauss]') 
 ylabel('Threshold Energy [Kelvin]')
+
+% make unique data - test this to see if it works (I want to see energy as
+% a function of quantum number for each unique quantum number pair) 
+
+m1 = Angular_QN_ULF(:, 1);
+m2 = Angular_QN_ULF(:, 2);
+
+[uniquePairs, idx] = unique([m1, m2], 'rows', 'stable');
+
+% Take the last column of thresholdEns (energy at last B)
+%E_threshold = ThresholdEns(:, end);
+threshold_unique = ThresholdEns(15,idx)*t0;
+
+idxnum = 1:length(uniquePairs); 
+
+% Combine into one matrix
+QN_Energies = [idxnum', uniquePairs, threshold_unique'];
+
 
 
 % plotting

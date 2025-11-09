@@ -1,6 +1,6 @@
 %  basic  setup information for calculations of bosonic Dy
 
-clear all
+%clear all
 units   %  load conversion factors for atomic units
 
 %  potential for centrifugal plus isotropic van der waals
@@ -75,6 +75,9 @@ for Ombar = 0 : 2 : j1 + j2
         SRcoef(Ombar+1,j12+1) = C12-MeanC12;   %  +1 since Ombar, j12 can be zero
     end
 end
+
+
+
 % the above function initializes the B-O curves with random C12 values for
 % each realization of Omega (BF) 
 

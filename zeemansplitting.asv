@@ -46,28 +46,6 @@ for iBF = 1:numBF
 end
 
 
-% Try again:
-figure;
-hold on
-
-% Preallocate cell array for legend labels
-legend_labels = cell(length(HBmat), 1);
-
-for i = 1:length(HBmat)
-    legend_labels{i} = sprintf('Val1: %.2f, Val2: %.2f, Val3: %.2f, Val4: %.2f', ...
-        Angular_QN_ULF(i, 1), Angular_QN_ULF(i, 2), Angular_QN_ULF(i, 3), Angular_QN_ULF(i, 4));
-    
-    plot(BFields*b0, ThresholdEns(:, i)*t0 - base_thresholds*t0, ...
-        'DisplayName', legend_labels{i});
-end
-
-% Plot reference line
-plot(BFields*b0, ones(length(BFields))*energy*t0, ...
-    'LineWidth', 2, 'LineStyle', '--', 'DisplayName', 'Collision Energy');
-
-xlabel('B [Gauss]');
-ylabel('Threshold Energy [Kelvin]');
-legend('show');
 
 % plot the threshold energies
 figure;
@@ -75,15 +53,30 @@ hold on
 legend_labels = cell(length(HBmat), 1);
 for i = 1:length(HBmat)
     
-    legend_labels(i) = sprintf('Val1: %.2f, Val2: %.2f, Val3: %.2f, Val4: %.2f', ...
-        Angular_QN_ULF(i, 1), Angular_QN_ULF(i, 2), Angular_QN_ULF(i, 3), Angular_QN_ULF(i, 4));
-    plot(BFields*b0, ThresholdEns(:,i)*t0-base_thresholds*t0, 'DisplayName', legend_labels(i))
+%     legend_labels(i) = sprintf('Val1: %.2f, Val2: %.2f, Val3: %.2f, Val4: %.2f', ...
+%         Angular_QN_ULF(i, 1), Angular_QN_ULF(i, 2), Angular_QN_ULF(i, 3), Angular_QN_ULF(i, 4));
+    plot(BFields*b0, ThresholdEns(:,i)*t0-base_thresholds*t0)
 end
-plot(BFields*b0, ones(length(BFields))*energy*t0, 'LineWidth', 2, 'DisplayName', 'Collision Energy', linestyle = '--');
+plot(BFields*b0, ones(length(BFields))*energy*t0, 'LineWidth', 2, linestyle = '--');
 xlabel('B [Gauss]') 
 ylabel('Threshold Energy [Kelvin]')
 
-legend('show')
+% make unique data - test this to see if it works (I want to see energy as
+% a function of quantum number for each unique quantum number pair) 
+
+m1 = Angular_QN_ULF(:, 1);
+m2 = Angular_QN_ULF(:, 2);
+
+[uniquePairs, idx] = unique([m1, m2], 'rows', 'stable');
+
+% Take the last column of thresholdEns (energy at last B)
+%E_threshold = ThresholdEns(:, end);
+threshold_unique = ThresholdEns(15, :idx );
+
+% Combine into one matrix
+QN_Energies = [m1, m2, threshold_unique];
+
+
 
 % plotting
 % figure; 
