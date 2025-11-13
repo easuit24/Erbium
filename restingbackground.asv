@@ -2,9 +2,12 @@ clear all
 load_Er
 disp(MeanDe) 
 
-MeanDe_arr = linspace(100,110, 30); 
+MeanDe_arr = linspace(102,103, 1); % just have a fixed depth for now
 for md = 1:length(MeanDe_arr)    
     disp("MeanDe = " + MeanDe_arr(md)/t0)
+   
+    
+    
     MeanDe = MeanDe_arr(md)/t0; 
     DeltaDe = 30.0/t0; %  variation in depth
     MeanC12 = C6^2/4/MeanDe;
@@ -50,11 +53,13 @@ for md = 1:length(MeanDe_arr)
         end
     end
     setup_mod
+    
+    % NOW B-field grid 
     %  define the actual grid you want results on
     % magnetic field parameters to scan over 
     dBField = 0.5;
-    BFieldlo = 8.0;
-    BFieldhi = 8.0; % change this as desired for more magnetic field
+    BFieldlo = 1.0;
+    BFieldhi = 50.0; % change this as desired for more magnetic field
     %BFieldhi = .0;
     numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
     BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
@@ -79,10 +84,33 @@ for md = 1:length(MeanDe_arr)
     dr = 0.001;
     %rgo = 1000.0; % for testing
     rgo = 10000.0;
+    r = logspace(log10(rstart), log10(rgo), 5000)'; 
     Fixed_Step_Size = false;
     scale = 50.d0;   
 
     ymat_initial = 1.e20*eye(numfun,numfun);
+    
+        %%%%% set up Born Approximation calculation
+    C3_i  = C3mat(1,1);     % dipole-dipole
+    C6_i  = C6;           % van der Waals 
+    C12_i = MeanC12;      % C12
+    Veff = C12_i ./ r.^12 - C6_i ./ r.^6 + C3_i ./ r.^3; % potential for Born approximation 
+    
+    scat_b = -2 * mass / hbar^2 * trapz(r, r.^2 .* Veff); % scattering length for Born approximation 
+    ki = sqrt(2*mass*energy/hbar^2); % wavenumber
+    crosssection_b = 4*pi/ki^2*abs(scat_b)^2;
+    rateconstant_b(md) = hbar*ki*crosssection_b/mass; % based off of how this was done last time 
+        % store as a function of mean depth - but maybe for now store as a
+        % function of B Field... 
+        
+    %%%%% 
+    %TODO: implement an algorithm to store points where the derivative is
+    %less than a given threshold and calculate the average of the ratio
+    %at these points... store this average in an array. Make sure the above
+    %works first though 
+   
+    % Plot the above Born approximation result with the existing results..
+    % does the result seem reasonable? 
 
 
     % loop over magnetic fields
@@ -159,6 +187,7 @@ for md = 1:length(MeanDe_arr)
         Kmat_channels_inelastic(iBF) = hbar*ki*total_inelastic_crosssection/mass;
         Kmat_exchange(iBF) = hbar*ki*sum(crosssection_ex)/mass;
         %exchange_rate = Kmat_channels_ex;
+       
 
 
         arealmat(iBF) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
@@ -175,6 +204,10 @@ for md = 1:length(MeanDe_arr)
 
         BFields_gauss = BFields*b0;
         %save("Ldata.mat", "BFields_gauss", "arealmat", "aimagmat")
+        ratio_arr_B(iBF) = Kmat_channels_inelastic/Kmat_exchange; 
+        spin_ex = Kmat_exchange; 
+        spin_sr = Kmat_channels_inelastic; 
+        
     end
 
     % elastic rate constant: exiting in -4 -4 
@@ -183,23 +216,55 @@ for md = 1:length(MeanDe_arr)
     disp("Relaxation Rate Constant: " + Kmat_channels_inelastic*l0^3/tau0) 
     % spin exchange
     disp("Spin Exchange Rate Constant: " + Kmat_exchange*l0^3/tau0) 
+    
+    % find the derivatives: 
+    dydx_sr = diff(Kmat_channels_inelastic)./diff(BFields_gauss_array); 
+    dydx_ex = diff(Kmat_exchange)./diff(BFields_gauss_array); 
+    dthreshold = 1e-8; 
+    % small derivatives 
+    sr_indices = dydx_sr < threshold; 
+    ex_indices = dydx_ex < threshold; 
+    srex_intersect = intersect(sr_indices, ex_indices); 
+    spinexchange_condensed = Kmat_exchange(srex_intersect); 
+    spinrelax_condensed = Kmat_channels_inelastic(srex_intersect); 
+    background_ratio = spinrelax_condensed./spinexchange_condensed; 
+    
     ratio = Kmat_channels_inelastic/Kmat_exchange; 
     disp("Ratio: " + ratio) 
     ratio_arr(md) = ratio; 
 end     
 
-figure; 
-plot(MeanDe_arr, scat, 'LineWidth', 2)
-xlabel('Mean Depth') 
-ylabel('Scattering Length') 
+figure;
+plot(BFields_gauss_array, ratio_arr_B, 'LineWidth', 2)
+xlabel('B-Field') 
+ylabel('\beta_{sr}/\beta_{ex}')
 
+% these seem to be the correct order of magnitude... just need to find
+% error in Born approximation  
 figure; 
-loglog(MeanDe_arr, ratio_arr, 'LineWidth', 2)
-xlabel('Mean Depth') 
-ylabel('\beta_{sr}/\beta_{ex}') 
+plot(BFields_gauss_array, spin_sr*l0^3/tau0, '-r', 'LineWidth', 2)
+hold on
+plot(BFields_gauss_array, spin_ex*l0^3/tau0, '-b', 'LineWidth',2)
+xlabel('B-Field') 
+ylabel('\beta')
 
-disp("Finally, the average") 
-disp("Average: " + mean(ratio_arr))
+% now plot the rate constant Born approximation: this is just the Born
+% approximation for elastic scattering... is there a different one for
+% other scattering? Look into this approximation more to understand it. 
+figure; 
+plot(BFields_gauss_array, rateconstant_b, 'g--', 'LineWidth', 2) 
+xlabel('B-Field') 
+ylabel('\beta')
+
+% figure; 
+% plot(MeanDe_arr, scat, 'LineWidth', 2)
+% xlabel('Mean Depth') 
+% ylabel('Scattering Length') 
+% 
+% figure; 
+% loglog(MeanDe_arr, ratio_arr, 'LineWidth', 2)
+% xlabel('Mean Depth') 
+% ylabel('\beta_{sr}/\beta_{ex}') 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

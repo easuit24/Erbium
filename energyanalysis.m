@@ -1,10 +1,17 @@
 % This file iterates over the energies to analyze the relationship between
 % the energy and a single magnetic field 
 
+% 11/10: temporarily changed setup -> setup_mod and shifted energies array
+
 setup 
+%%%%
+% load_Er
+% setup_mod % replace with just setup after debugging 
+%%%%%
 
 BField = 50.0/b0; 
 energies = logspace(-20,-6, 20); 
+%energies = logspace(-10,-6, 20); % shift energy lower for the higher incident channel
 
 % for numerics 
 rstart = 10.0;
@@ -69,7 +76,7 @@ scat = phase(1:15)*l0./ki_arr(1:15);
 
 
 % plot the collision energy as a function of incident energy
-p = polyfit(log(energies*t0), log(Kmat_channels*l0^3/tau0), 1);
+p = polyfit(log(energies(1:15)*t0), log(Kmat_channels(1:15)*l0^3/tau0), 1);
 logy_fit = polyval(p, log(energies*t0)); 
 % figure; 
 % hold on
