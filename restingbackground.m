@@ -2,7 +2,7 @@ clear all
 load_Er
 disp(MeanDe) 
 
-MeanDe_arr = linspace(100,120, 20); % just have a fixed depth for now
+MeanDe_arr = linspace(100,120, 1); % just have a fixed depth for now
 for md = 1:length(MeanDe_arr)    
     disp("MeanDe = " + MeanDe_arr(md)/t0)
    
@@ -57,7 +57,7 @@ for md = 1:length(MeanDe_arr)
     % NOW B-field grid 
     %  define the actual grid you want results on
     % magnetic field parameters to scan over 
-    dBField = 0.1;
+    dBField = 0.2;
     BFieldlo = 1.0;
     BFieldhi = 10.0; % change this as desired for more magnetic field
     %BFieldhi = .0;
