@@ -2,7 +2,7 @@ clear all
 load_Er
 disp(MeanDe) 
 
-MeanDe_arr = linspace(100,110, 30); 
+MeanDe_arr = linspace(100,125, 30); 
 for md = 1:length(MeanDe_arr)    
     disp("MeanDe = " + MeanDe_arr(md)/t0)
     MeanDe = MeanDe_arr(md)/t0; 

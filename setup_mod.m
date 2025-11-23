@@ -19,7 +19,7 @@ Basis = 'This time its the Uncoupled Lab Frame Basis';
 %  all angular momentum quantum numbers doubled
 %  uncoupled lab frame
 Lmin = 0;
-Lmax = 8; % previously 16 to see resonances
+Lmax = 16; % previously 16 to see resonances
 %Lmax = 16; 
 m1_incident = -8;
 m2_incident = -8;  

@@ -1,0 +1,5 @@
+syms J
+syms h
+A = [-J -h -h 0; -h J 0 -h; -h 0 J -h; 0 -h -h -J];
+[V,D] = eig(A)
+disp(V(:,4)/norm(V(:,4)))

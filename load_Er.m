@@ -1,6 +1,6 @@
 %  basic  setup information for calculations of bosonic Dy
 
-%clear all
+%clear a
 units   %  load conversion factors for atomic units
 
 %  potential for centrifugal plus isotropic van der waals

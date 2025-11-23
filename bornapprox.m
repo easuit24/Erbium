@@ -1,34 +1,94 @@
+% this notebook computes the Born approximation for our problem 
+
 clear all 
 load_Er
-disp(MeanDe) 
+ 
+tic; 
+MeanDe_arr = linspace(100,120, 5); % just have a fixed depth for now
 
-MeanDe_arr = linspace(100,120, 20); % just have a fixed depth for now
+C620 = -42.3;   %  inferred from Maijer; probably too big
+%C620 = 0;       % zero
+%DeltaC12 = 0.0e09;   %  in atomic units
+
+%  GF abar for n=6
+abar = 2^(-3/2)*gamma(3/4)/gamma(5/4) ...
+       *( mass*C6 )^(1/4);    %  in atomic units
+
+% GF abar for n=4
+C4 = 0.0082;
+beta4 = (2*mass*C4)^(1/2);
+E4 = 1/2/mass/beta4^2;
+abar4 = 0; %  from their formula \propto \cos( \pi / (n-2) )
+
+% NOW B-field grid 
+dBField = 1;
+BFieldlo = 1.0;
+BFieldhi = 10.0; % change this as desired for more magnetic field
+
+numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
+BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
+
+task = 0 ;  %  0 if start from beginning, 1 from other
+iBFstart = 1;
+if task == 1
+    ss = open("Ldata.mat");
+    arealmat = ss.arealmat;
+    aimagmat = ss.aimagmat;
+    BFields_gauss = ss.BFields_gauss;
+    BFields = BFields_gauss/b0;
+    iBFstart = length(BFields_gauss) + 1;
+end
+
+
+% Initialize arrays to store results for each magnetic field
+%rateconstant_b = zeros(length(MeanDe_arr), 1);
+BFields = zeros(numBF, 1);
+
+
+energy  = 8.0e-9 % for entering the -4 -4 channel but having all above channels closed 
+
+%energy = 5.d-3/t0; % for iopening the -5 -5 channel 
+
+rstart = 10.0;
+dr = 0.001;
+%rgo = 1000.0; % for testing
+rgo = 10000.0;
+r = logspace(log10(rstart), log10(rgo), 5000)'; 
+Fixed_Step_Size = false;
+scale = 50.d0;   
+
+
+ki = sqrt(2*mass*energy/hbar^2); % wavenumber
+kmat_exchange_tot = 0; 
+scat = zeros(length(MeanDe_arr)); 
+mean_background_ratio = zeros(length(MeanDe_arr)); 
+ratio_arr = zeros(length(MeanDe_arr)); 
+
 for md = 1:length(MeanDe_arr)    
-    disp("MeanDe = " + MeanDe_arr(md)/t0)
    
-    
+    iBF = 1; 
     
     MeanDe = MeanDe_arr(md)/t0; 
     DeltaDe = 30.0/t0; %  variation in depth
     MeanC12 = C6^2/4/MeanDe;
-    DeltaCBO = 0.0e5;  % for coupling differnt j12 i desired
+    %DeltaCBO = 0.0e5;  % for coupling differnt j12 i desired
 
     %C12 = 14028750;  % gives about 152 bound states - like the real one?
     %C12 = 1.0e10;   %  5e10 gives about 10 basic bound states; 1e10 gives about 15
 
-    C620 = -42.3;   %  inferred from Maijer; probably too big
-    %C620 = 0;       % zero
-    %DeltaC12 = 0.0e09;   %  in atomic units
-
-    %  GF abar for n=6
-    abar = 2^(-3/2)*gamma(3/4)/gamma(5/4) ...
-           *( mass*C6 )^(1/4);    %  in atomic units
-
-    % GF abar for n=4
-    C4 = 0.0082;
-    beta4 = (2*mass*C4)^(1/2);
-    E4 = 1/2/mass/beta4^2;
-    abar4 = 0; %  from their formula \propto \cos( \pi / (n-2) )
+    % C620 = -42.3;   %  inferred from Maijer; probably too big
+    % %C620 = 0;       % zero
+    % %DeltaC12 = 0.0e09;   %  in atomic units
+    % 
+    % %  GF abar for n=6
+    % abar = 2^(-3/2)*gamma(3/4)/gamma(5/4) ...
+    %        *( mass*C6 )^(1/4);    %  in atomic units
+    % 
+    % % GF abar for n=4
+    % C4 = 0.0082;
+    % beta4 = (2*mass*C4)^(1/2);
+    % E4 = 1/2/mass/beta4^2;
+    % abar4 = 0; %  from their formula \propto \cos( \pi / (n-2) )
 
 
     %  initialize random number generator
@@ -40,7 +100,7 @@ for md = 1:length(MeanDe_arr)
     %  Born-Oppenheimer curves
     %  for now, gerade states only
     %  let each BO curve be determined by Pmbar, j12 (no j12 mixing here)
-    disp('modification: changing one BO potential')
+    %disp('modification: changing one BO potential')
     rng(9)
     Index = 0;
     for Ombar = 0 : 2 : j1 + j2
@@ -54,52 +114,50 @@ for md = 1:length(MeanDe_arr)
     end
     setup_mod
     
-    % NOW B-field grid 
-    %  define the actual grid you want results on
-    % magnetic field parameters to scan over 
-    dBField = 0.1;
-    BFieldlo = 1.0;
-    BFieldhi = 10.0; % change this as desired for more magnetic field
-    %BFieldhi = .0;
-    numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
-    BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
-
-    task = 0 ;  %  0 if start from beginning, 1 from other
-    iBFstart = 1;
-    if task == 1
-        ss = open("Ldata.mat");
-        arealmat = ss.arealmat;
-        aimagmat = ss.aimagmat;
-        BFields_gauss = ss.BFields_gauss;
-        BFields = BFields_gauss/b0;
-        iBFstart = length(BFields_gauss) + 1;
-    end
+    % % NOW B-field grid 
+    % dBField = 0.1;
+    % BFieldlo = 1.0;
+    % BFieldhi = 10.0; % change this as desired for more magnetic field
+    % 
+    % numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
+    % BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
+    % 
+    % task = 0 ;  %  0 if start from beginning, 1 from other
+    % iBFstart = 1;
+    % if task == 1
+    %     ss = open("Ldata.mat");
+    %     arealmat = ss.arealmat;
+    %     aimagmat = ss.aimagmat;
+    %     BFields_gauss = ss.BFields_gauss;
+    %     BFields = BFields_gauss/b0;
+    %     iBFstart = length(BFields_gauss) + 1;
+    % end
 
     %  set parameters for numerical propagation
-    energy  = 8.0e-9 % for entering the -4 -4 channel but having all above channels closed 
-
-    %energy = 5.d-3/t0; % for iopening the -5 -5 channel 
-
-    rstart = 10.0;
-    dr = 0.001;
-    %rgo = 1000.0; % for testing
-    rgo = 10000.0;
-    r = logspace(log10(rstart), log10(rgo), 5000)'; 
-    Fixed_Step_Size = false;
-    scale = 50.d0;   
-
+    % energy  = 8.0e-9 % for entering the -4 -4 channel but having all above channels closed 
+    % 
+    % %energy = 5.d-3/t0; % for iopening the -5 -5 channel 
+    % 
+    % rstart = 10.0;
+    % dr = 0.001;
+    % %rgo = 1000.0; % for testing
+    % rgo = 10000.0;
+    % r = logspace(log10(rstart), log10(rgo), 5000)'; 
+    % Fixed_Step_Size = false;
+    % scale = 50.d0;   
+    % 
     ymat_initial = 1.e20*eye(numfun,numfun);
     
         %%%%% set up Born Approximation calculation
-    C3_i  = C3mat(1,1);     % dipole-dipole
-    C6_i  = C6;           % van der Waals 
-    C12_i = MeanC12;      % C12
-    Veff = C12_i ./ r.^12 - C6_i ./ r.^6 + C3_i ./ r.^3; % potential for Born approximation 
-    
-    scat_b = -2 * mass / hbar^2 * trapz(r, r.^2 .* Veff); % scattering length for Born approximation 
-    ki = sqrt(2*mass*energy/hbar^2); % wavenumber
-    crosssection_b = 4*pi/ki^2*abs(scat_b)^2;
-    rateconstant_b(md) = hbar*ki*crosssection_b/mass; % based off of how this was done last time 
+    % C3_i  = C3mat(1,1);     % dipole-dipole
+    % C6_i  = C6;           % van der Waals 
+    % C12_i = MeanC12;      % C12
+    % Veff = C12_i ./ r.^12 - C6_i ./ r.^6 + C3_i ./ r.^3; % potential for Born approximation 
+    % 
+    % scat_b = -2 * mass / hbar^2 * trapz(r, r.^2 .* Veff); % scattering length for Born approximation 
+    % ki = sqrt(2*mass*energy/hbar^2); % wavenumber
+    % crosssection_b = 4*pi/ki^2*abs(scat_b)^2;
+    % rateconstant_b(md) = hbar*ki*crosssection_b/mass; % based off of how this was done last time 
         % store as a function of mean depth - but maybe for now store as a
         % function of B Field... 
         
@@ -112,7 +170,8 @@ for md = 1:length(MeanDe_arr)
     % Plot the above Born approximation result with the existing results..
     % does the result seem reasonable? 
 
-
+    ratio_arr_B = zeros(length(numBF)); 
+    numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1;
     % loop over magnetic fields
     for iBF  = iBFstart :  numBF
         BField = BFields_gauss_array(iBF)/b0;  %  convert to au here
@@ -151,8 +210,6 @@ for md = 1:length(MeanDe_arr)
         %%%%%%%
 
 
-        ki = sqrt(2*mass*energy/hbar^2); % wavenumber
-        kmat_exchange_tot = 0; 
         for j = 1:numopen % loop over channels 
             %g = 2; 
             %Sii = Smat(is,is);
@@ -164,7 +221,6 @@ for md = 1:length(MeanDe_arr)
                 Kmat_channels(iBF) = hbar*ki * crosssection/mass;
             elseif any(j == itarget)
                 % Note: Add the cross sections instead of the rate constants! 
-                disp('Enetering Spin Exchange: ')
                 g = 1;
                 Sij = Smat(is, j); 
                 crosssection_ex(j) = g*pi*abs(Sij)^2/ki^2;
@@ -190,9 +246,9 @@ for md = 1:length(MeanDe_arr)
        
 
 
-        arealmat(iBF) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
-        aimagmat(iBF) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
-        abarmat(iBF) = abar;
+        % arealmat(iBF) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
+        % aimagmat(iBF) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
+        % abarmat(iBF) = abar;
         
         % calculate scattering length to plot against depth
         phase = 0.5*angle(Smat(is,is)); 
@@ -210,17 +266,17 @@ for md = 1:length(MeanDe_arr)
         
     end
 
-    % elastic rate constant: exiting in -4 -4 
-    disp("Rate Constant: " + Kmat_channels*l0^3/tau0)
-    % inelastic rate constant: exiting not in -4 -4
-    disp("Relaxation Rate Constant: " + Kmat_channels_inelastic*l0^3/tau0) 
-    % spin exchange
-    disp("Spin Exchange Rate Constant: " + Kmat_exchange*l0^3/tau0) 
+    % % elastic rate constant: exiting in -4 -4 
+    % disp("Rate Constant: " + Kmat_channels*l0^3/tau0)
+    % % inelastic rate constant: exiting not in -4 -4
+    % disp("Relaxation Rate Constant: " + Kmat_channels_inelastic*l0^3/tau0) 
+    % % spin exchange
+    % disp("Spin Exchange Rate Constant: " + Kmat_exchange*l0^3/tau0) 
     
     % find the derivatives: 
     dydx_sr = diff(Kmat_channels_inelastic)./diff(BFields_gauss_array); 
     dydx_ex = diff(Kmat_exchange)./diff(BFields_gauss_array); 
-    dthreshold = 5.5e-6; 
+    dthreshold = 5.0e-6; 
     % small derivatives 
     sr_indices = abs(dydx_sr) < dthreshold; 
     ex_indices = abs(dydx_ex) < dthreshold; 
@@ -231,7 +287,6 @@ for md = 1:length(MeanDe_arr)
     mean_background_ratio(md) = mean(background_ratio); 
     
     ratio = Kmat_channels_inelastic/Kmat_exchange; 
-    disp("Ratio: " + ratio) 
     ratio_arr(md) = ratio; 
 end     
 
@@ -264,6 +319,8 @@ plot(MeanDe_arr, mean_background_ratio, 'LineWidth', 2);
 xlabel('Depth (K)'); 
 ylabel('\beta_{sr}/\beta_{ex}');
 
+elapsedTime = toc; 
+disp(['Elapsed time: ', num2str(elapsedTime), ' seconds']); 
 
 % now plot the rate constant Born approximation: this is just the Born
 % approximation for elastic scattering... is there a different one for
