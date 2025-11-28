@@ -33,3 +33,5 @@ plot(MeanDe_arr, mean_tot + unc_tot, "magenta")
 plot(MeanDe_arr, mean_tot - unc_tot, "magenta")
 xlabel("Depth [K]")
 ylabel("\beta_{sr}/\beta_{ex}")
+
+% save("curve2_data.mat", "mean_tot", "unc_tot") 
