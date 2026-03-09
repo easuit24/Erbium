@@ -1,0 +1,27 @@
+% loop through the different depths and find the average and std rates as a
+% function of depth 
+% Then for each channel that is changed, plot all these averages together
+% in one plot (13 curves) 
+% Also plot the MSE: find the average of all the curves and for each curve,
+% find the MSE and plot the MSE as a function of curve number to determine
+% the statistical significance of a given curve 
+
+% MSE from background
+backgrou
+
+% import background
+
+% import all different curve data 
+
+% find the MSE between each dataset and the background 
+
+% plot the MSE against curve number (labeled chronologically from top to
+% bottom 
+% mseValues = zeros(numCurves, 1); % Initialize MSE array
+% for i = 1:numCurves
+%     mseValues(i) = mean((curveData{i} - background).^2); % Calculate MSE for each curve
+% end
+% plot(1:numCurves, mseValues, '-o'); % Plot MSE against curve number
+% xlabel('Curve Number');
+% ylabel('Mean Squared Error (MSE)');
+% title('MSE of Curves Compared to Background');

@@ -1,4 +1,6 @@
 % This is a copy of the original setup file so I can modify the states 
+% The differences are the differences in the quantum numbers defined and
+% also the fact that this does not load the Erbium file, load_Er
 
 % setup for further calculations in UNCOUPLED LAB FRAME
 %  load basic information, construct angular matrices 
@@ -19,16 +21,19 @@ Basis = 'This time its the Uncoupled Lab Frame Basis';
 %  all angular momentum quantum numbers doubled
 %  uncoupled lab frame
 Lmin = 0;
-Lmax = 16; % previously 16 to see resonances
+Lmax = 16; % previously 16 to see resonances - this was here for Born
+%Lmax = 16; % previously 16 to see resonances
+
 %Lmax = 16; 
 m1_incident = -8;
 m2_incident = -8;  
 % m1_incident = -10; 
 % m2_incident = -10; 
-L_incident = 0;
+L_incident = 0; %previously 0
+L_incident = 8; % this was activated for the Born approximation stuff
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
-
+%mu = -g*mu_B*j1 % dipole moment 
 % dipole, hence charactieristic scales, depend on m quantum nubmers
 dipole_length = mass*(gfactor*muB*m1_incident/2) ...
                   *(gfactor*muB*m2_incident/2);
@@ -110,6 +115,7 @@ for iULF = 1 : numULF
         Jtot = Angular_QN_BF(iBF,1);
         j12 = Angular_QN_BF(iBF,2);
         Ombar = Angular_QN_BF(iBF,3);
+        % Transform quantum numbers between bases and store in unitary U 
         U_ULF_BF(iULF,iBF) = fun_BF_to_ULF( j12,Ombar,Jtot,Mtot, ...
                                             j1,m1,j2,m2,L,ML );
     end

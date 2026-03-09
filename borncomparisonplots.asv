@@ -1,0 +1,11 @@
+%sigma_total_elastic3 = sigma_total_elastic/(max(max(C3mat))*mass)^2; % modify sigma_total_elastic to be unitless
+%figure; loglog(energies, sigma_total_elastic3, "LineWidth", 2); hold on; loglog(energies, sigma/2, "--r", "LineWidth",2); ylim([0.1,15])
+
+
+figure; 
+loglog(energies, abs(T_matrix(:,1)).^2, "LineWidth", 2);
+hold on
+for ind = 2:size(partial_sigma_arr,2)
+    loglog(energies, abs(T_matrix(:,ind)).^2, "LineWidth", 2, 'DisplayName', sprintf('%d', 2*ind))
+end
+loglog(energies, abs(T_mat).^2, "--r", "LineWidth", 2, 'DisplayName', "Born Approx 0->2"); xlabel("Energy"); ylabel("T-matrix"); legend show;

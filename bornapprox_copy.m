@@ -1,12 +1,10 @@
-clear all 
-load_Er2
+% this notebook computes the Born approximation for our problem 
 
-% TODO: just set the curves and save them and then loop through and change
-% each curve and take the average - find how much the new average strays
-% from the previous average where no curves were changed - plot this 
+clear all 
+load_Er
  
 tic; 
-MeanDe_arr = linspace(100,110, 20); % just have a fixed depth for now
+MeanDe_arr = linspace(100,120, 5); % just have a fixed depth for now
 
 C620 = -42.3;   %  inferred from Maijer; probably too big
 %C620 = 0;       % zero
@@ -66,12 +64,9 @@ scat = zeros(length(MeanDe_arr));
 mean_background_ratio = zeros(length(MeanDe_arr)); 
 ratio_arr = zeros(length(MeanDe_arr)); 
 
-% store spin exchange and spin relaxation into a md x bfield array
-spin_ex_arr = zeros(length(MeanDe_arr), length(BFields_gauss_array));
-spin_sr_arr = zeros(length(MeanDe_arr), length(BFields_gauss_array));
 for md = 1:length(MeanDe_arr)    
    
-    %iBF = 1; 
+    iBF = 1; 
     
     MeanDe = MeanDe_arr(md)/t0; 
     DeltaDe = 30.0/t0; %  variation in depth
@@ -117,17 +112,6 @@ for md = 1:length(MeanDe_arr)
             SRcoef(Ombar+1,j12+1) = C12-MeanC12;   %  +1 since Ombar, j12 can be zero
         end
     end
-
-    %%% add in changing a curve - but as each curve is changed, make sure
-    %%% that the curve is changed each time the depths are changed 
-    rng(1)
-    curve_index = 1; 
-    Ombarchange = (j1+j2-curve_index); % choose the 2nd highest curve 
-    SRcoef(Ombarchange+1,Ombarchange+1)
-    De = MeanDe + DeltaDe*(rand-0.5);
-    C12 = C6^2/4/De;
-    SRcoef(Ombarchange+1,Ombarchange+1) = C12-MeanC12;
-
     setup_mod
     
     % % NOW B-field grid 
@@ -278,13 +262,9 @@ for md = 1:length(MeanDe_arr)
         %save("Ldata.mat", "BFields_gauss", "arealmat", "aimagmat")
         ratio_arr_B(iBF) = Kmat_channels_inelastic/Kmat_exchange; 
         spin_ex = Kmat_exchange; 
-        spin_sr = Kmat_channels_inelastic;  
-
+        spin_sr = Kmat_channels_inelastic; 
         
     end
-
-    spin_ex_arr(md,:) = spin_ex;
-    spin_sr_arr(md,:) = spin_sr;
 
     % % elastic rate constant: exiting in -4 -4 
     % disp("Rate Constant: " + Kmat_channels*l0^3/tau0)
@@ -296,7 +276,7 @@ for md = 1:length(MeanDe_arr)
     % find the derivatives: 
     dydx_sr = diff(Kmat_channels_inelastic)./diff(BFields_gauss_array); 
     dydx_ex = diff(Kmat_exchange)./diff(BFields_gauss_array); 
-    dthreshold = 6.5e-6; 
+    dthreshold = 5.0e-6; 
     % small derivatives 
     sr_indices = abs(dydx_sr) < dthreshold; 
     ex_indices = abs(dydx_ex) < dthreshold; 
@@ -309,8 +289,6 @@ for md = 1:length(MeanDe_arr)
     ratio = Kmat_channels_inelastic/Kmat_exchange; 
     ratio_arr(md) = ratio; 
 end     
-
-save("betadata_adjustcurve1_2.mat", "BFields_gauss_array", "spin_sr_arr", "spin_ex_arr")
 
 figure;
 plot(BFields_gauss_array, ratio_arr_B, 'LineWidth', 2)

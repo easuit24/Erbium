@@ -20,6 +20,7 @@ mArr = -12:2:12;
 % thresholds 
 targetQN = [-10,-10,4,-4]; % choose the channel to be the baseline 
 targetQN = [-12,-12,0,0];
+targetQN = [-8,-8,0,0]
 %energy = 1.6.d-3/t0 % collision energy
 energy = 1.6e-8 
 

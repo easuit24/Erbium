@@ -11,8 +11,8 @@ setup
 %  define the actual grid you want results on
 % magnetic field parameters to scan over 
 dBField = 0.5;
-BFieldlo = 1.0;
-BFieldhi = 50.0;
+BFieldlo = 9.0; % originally 1 when reopened on 12/19
+BFieldhi = 10.0; % orignally 50 when reopened on 12/19
 %BFieldhi = .0;
 numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
 BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
@@ -110,6 +110,7 @@ for iBF  = iBFstart :  numBF
 
     BFields_gauss = BFields*b0;
     save("Ldata.mat", "BFields_gauss", "arealmat", "aimagmat")
+    disp(iBF) 
 end
 
 

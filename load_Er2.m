@@ -85,7 +85,7 @@ end
 %  now modify a single one, of your choice
 
 rng('shuffle')
-Ombarchange = (j1+j2-3); % choose the 2nd highest curve 
+Ombarchange = (j1+j2-3); % choose a given curve here  
 SRcoef(Ombarchange+1,Ombarchange+1)
 De = MeanDe + DeltaDe*(rand-0.5);
 C12 = C6^2/4/De;

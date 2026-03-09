@@ -1,0 +1,448 @@
+    
+clear all 
+tic; 
+units 
+load_Er2
+setup_mod 
+
+
+reducedmatrix = sqrt(2*jatom*(2*jatom+1)*(2*2*jatom+1)); 
+muB; 
+gfactor = 1.1638;   % from Ferlaino group
+rstart = 10.0;
+dr = 0.001;
+%rgo = 1000.0; % for testing
+rgo = 10000.0;
+r = logspace(log10(rstart), log10(rgo), 5000)'; 
+r = 10; % set this for now and make more general later 
+
+%muB = 0.5; 
+%  all angular momentum quantum numbers doubled
+%  uncoupled lab frame
+% Spin parameters 
+jatom = 6;
+j1 = 2*jatom; 
+j2 = 2*jatom; 
+Lmin = 0;
+Lmax = 32; % previously 16 to see resonances
+%Lmax = 16; 
+m1_incident = -8;
+m2_incident = -8; 
+% set for inelastic, now lets set for spin relaxation - to -5,-5
+m1_final = -10; 
+m2_final = -10; 
+% m1_incident = -10; 
+% m2_incident = -10; 
+L_incident = 4; % changing this from 0 from spin exchange 
+ML_incident = 0;
+Mtot = m1_incident + m2_incident + ML_incident;
+
+L_final = L_incident; 
+ML_final = Mtot - m1_final - m2_final; % this accounts for spin relaxation
+
+
+prefactor = reducedmatrix^2*(-sqrt(30)*(muB*gfactor)^2*(gfactor*muB)^2); % array for all the different radii away
+prefactor = reducedmatrix^2*(-sqrt(30)*(gfactor*muB)^2);
+% q1 is the total quantum number of m1,m1' 
+% q2 is the total quantum number of m2, m2' 
+% q = q1+q2
+
+% let's say we do spin exchange - 1 spin goes from -4 to -3 and the other
+% goes from -4 to -5 so total spin is conserved 
+%k = 2; 
+k = 4; 
+q1 = m1_final - m1_incident; 
+thrj1 = thrj(j1, k, j2, -m1_final, q1, m1_incident);
+q2 = m2_final - m2_incident; 
+thrj2 = thrj(j1, k, j2, -m2_final, q2, m2_incident); 
+q_tot = q1+q2; 
+thrj_combined = thrj(2,2,4,q1,q2,-q_tot); % double all quantum numbers 
+
+
+% must add together the cross section for all possible 3-j symbols!
+% So let's just try one of them 
+angular_component = prefactor*(-1)^(j1-m1_incident)*(-1)^(j2-m2_incident)*thrj1*thrj2*thrj_combined; 
+
+
+
+BField = 5.0/b0; 
+%energies = logspace(-20,-6, 20); 
+energies = 8.0e-9;% corresponding to -4 -4 
+%energies = logspace(-10,-6, 20); % shift energy lower for the higher incident channel
+
+% for numerics 
+rstart = 10.0;
+rstart = 15.0;
+dr = 0.001;
+%rgo = 1000.0; % for testing
+%rgo = 10000.0;
+rgo = 10000.0;
+Fixed_Step_Size = false;
+scale = 50.d0;   
+
+ymat_initial = 1.e20*eye(numfun,numfun);
+thresholds = diag(HBmat)*BField;
+
+for iEn = 1:length(energies)
+    % scattering result 
+    [Smat, Kmat, QN_open, thresholds_open ] ...
+          = scatter(mass, C6, MeanC12, Angular_QN_ULF, ...
+                    TKmat, C12mat, C8mat, ...
+                    C6mat, C3mat, HBmat, ...
+                    BField, energies(iEn), thresholds, ...
+                    rstart, dr, rgo, ...
+                    Fixed_Step_Size, scale, ...
+                    ymat_initial);
+
+    numopen = length(thresholds_open);
+    
+    % loop to find incident channel 
+    for i = 1: numopen
+        if QN_open(i,1) == Angular_QN_ULF(incident,1) & ...
+           QN_open(i,2) == Angular_QN_ULF(incident,2) & ...
+           QN_open(i,3) == Angular_QN_ULF(incident,3) & ...     
+           QN_open(i,4) == Angular_QN_ULF(incident,4)
+           is = i; % this is the incident channel
+           elasticIndex(iBF) = is; 
+        end 
+    end
+    
+    % calculate the rate constant here 
+    ki = sqrt(2*mass*energies(iEn)/hbar^2); % wavenumber
+    ki_arr(iEn) = ki; 
+    for j = 1:numopen
+        g = 1; 
+        Sii = Smat(is,is);
+        phase(iEn) = 0.5*angle(Sii); 
+
+        if j == is
+            crosssection = g*pi*abs(1 - Sii)^2/ki^2;
+            crosssection_arr(iEn) = crosssection; 
+            Kmat_channels(iEn) = hbar*ki * crosssection/mass;
+        end 
+
+    end 
+    arealmat(iEn) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
+    aimagmat(iEn) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
+    abarmat(iEn) = abar;
+
+    en_ind = all(QN_open(:,1:4) == [m1_incident, m2_incident,L_incident, ML_incident],2);
+    thresholds_open = thresholds_open'; 
+    inc_ens = thresholds_open(en_ind, :); % fix this indexing
+    
+    en_ind_out = all(QN_open(:,1:4) == [m1_final, m2_final, L_final, ML_final],2);
+    final_ens = thresholds_open(en_ind_out', :);
+    
+    % find the wavenumbers ki and kf 
+    % Note: define inc_ens and final_ens
+    energy = energies(iEn); 
+    ki = sqrt(2*mass*(energy-inc_ens)/hbar^2); 
+    kf = sqrt(2*mass*(energy-final_ens)/hbar^2); 
+    
+    % write sigma bar right away - loop over the possible l and l' up to
+    % Lincident and Lfinal 
+    
+    
+    sigma_bar = 0; 
+    for l = 0:2:Lmax
+        for lp = 0:2:Lmax 
+    
+            C = ang_integral(l, lp, m1_incident+m2_incident, m1_final+m2_final);
+            Ra = rad_integral(l, lp, ki, kf); % these are magnitudes of k
+            % fprintf('Sigma Bar: %f\n', sigma_bar)
+            % disp(C) 
+            % disp(Ra) 
+            % should have an odd/even clause for l-lp since it can determine
+            % +/`- sign since previously had a i 
+            if C == 0
+                Ra = 0; 
+            end 
+            sigma_bar = C^2*Ra^2*1i^(2*(l-lp)) + sigma_bar; 
+        end 
+    end 
+    
+    avgcrosssection_sr = (mass^2/(2*pi)^2)*sigma_bar*angular_component; 
+    beta_sr = hbar*ki*avgcrosssection_sr/mass*l0^3/tau0; 
+    fprintf('Angular Cross Section (Spin Relaxation): %f\n', avgcrosssection_sr)
+    fprintf('Elapsed Time: %f\n', toc)
+    
+    S_mat(iEn) = sqrt(mass*abs(beta_sr)*ki/pi); 
+
+end
+
+%% 
+
+
+scat = phase(1:15)*l0./ki_arr(1:15); 
+
+
+% plot the collision energy as a function of incident energy
+p = polyfit(log(energies(1:15)*t0), log(Kmat_channels(1:15)*l0^3/tau0), 1);
+logy_fit = polyval(p, log(energies*t0)); 
+% figure; 
+% hold on
+% loglog(energies*t0, Kmat_channels*l0^3/tau0, 'b-', 'LineWidth', 2)
+% loglog(energies*t0, exp(logy_fit), '--r'); 
+% xlabel('Energy (Kelvin)') 
+% ylabel('Rate Constant (cm^3/s)') 
+% title('Rate Constant vs. Energy') 
+% plot the phase as a function of wavenumber k 
+% first fit the slope to see if it matches the scattering length 
+
+% we do indeed find that the slope is 1/2 implying that there is the
+% correct square root dependence here 
+figure
+loglog(energies*t0, exp(logy_fit), 'r-'); 
+hold on 
+loglog(energies*t0, Kmat_channels*l0^3/tau0, '--b', 'LineWidth', 2)
+xlabel('Energy [Kelvin]')
+ylabel('Rate Constant [cm^3/s]') 
+title('Rate Constant vs. Energy') 
+legend('Fit', 'True Data')
+hold off 
+
+% Cross Section: We do find that this is constant! 
+figure
+
+loglog(energies*t0, crosssection_arr*l0^2, 'b-', 'LineWidth', 2)
+hold on 
+loglog(energies(1:length(scat))*t0, 4*pi*scat.^2, '--r', 'LineWidth', 2) 
+xlabel('Energy [Kelvin]')
+ylabel('Cross Section [cm^2]') 
+title('Cross Section vs. Energy Plot') 
+legend('True Data')
+hold off
+%% 
+
+
+% p = polyfit(ki_arr(70:100)/l0, phase(70:100), 1); %this yields scattering length = -3.037e+6
+% y_fit = polyval(p, ki_arr/l0); 
+figure; 
+plot(ki_arr/l0, phase, 'b-', 'LineWidth', 2)
+hold on
+plot(ki_arr/l0, y_fit, 'r-', 'LineWidth', 2)
+ylabel('Wavenumber [1/cm]') 
+xlabel('Phase [rad]') 
+title('Phase vs. Wavenumber') 
+
+% plot the scattering lengths as a function of energy 
+figure; 
+plot(energies*t0, arealmat, 'b-', 'LineWidth', 2)
+hold on
+plot(energies*t0, aimagmat, 'r-', 'LineWidth', 2) 
+plot(energies*t0, ones(length(energies))*abar, '--k', 'LineWidth', 2)
+title('Scattering Length vs. Energy') 
+xlabel('Energy [Kelvin]') 
+ylabel('Scattering Length') 
+
+% plot cross section as a function of scattering length 
+figure; 
+plot(arealmat, crosssection_arr, 'b-', 'LineWidth', 2)
+hold on
+plot(aimagmat, crosssection_arr, 'r-', 'LineWidth', 2) 
+plot(arealmat.^2 + aimagmat.^2, crosssection_arr, 'g-', 'LineWidth', 2) 
+plot(abar*ones(length(energies)), crosssection_arr, '--k', 'LineWidth', 2)
+xlabel('Cross Section [a0]') 
+ylabel('Scattering Length') 
+title('Scattering Length vs. Cross Section') 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%  this thing does the actual scattering
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function [Smat, Kmat, QN_open, thresholds_open ] ...
+                      = scatter(mass, C6, MeanC12, Angular_QN_ULF, ...
+                                TKmat, C12mat, C8mat, ...
+                                C6mat, C3mat, HBmat, ...
+                                BField, energy, thresholds, ...
+                                rstart, dr, rgo, ...
+                                Fixed_Step_Size, scale, ...
+                                ymat_initial)
+% the scattering problem, deliver Smat and Kmat for a given energy
+%   needs the parameters that handle the propagation:
+%                 rstart, dr, rgo, Ymat_initial
+%                 Fixed_Step_Size, scale
+%   and the parameters needed for matching:
+%                  (partial waves in each channel), 
+%                 thresholds
+%  return the quantum nubmers and threholds 
+%        of the open channels
+
+potlocal = @(r) ...  %  for use within this calculation
+    potmat(BField, r, ...
+           TKmat, C12mat, C8mat, ...
+           C6mat, C3mat, HBmat );
+
+%  compute Y-matrix
+numfun = length(thresholds);
+Ymat = ymat_initial;
+r = rstart;
+while r < rgo
+    if Fixed_Step_Size == true
+             % nothing; leave with the one you came with
+    else     
+        %Vtemp = potlocal(r);
+        %V_local = eigs(Vtemp,1,'smallestreal'); 
+        V_local = MeanC12/r^12 - C6/r^6;
+        if energy-V_local <= 0
+            %  nothing; de Broglie wavelength is imaginary
+        else   % dr is fraction of local deBroglie wavelength
+            lambda = 1/sqrt(2*mass*(energy-V_local));
+            dr = lambda/scale;
+        end
+    end
+    Ymat1 = logstep(energy, mass, ...
+                   r,dr,Ymat, ...
+                   BField, ...
+                   TKmat, C12mat, C8mat, ...
+                   C6mat, C3mat, HBmat);
+    Ymat = Ymat1;
+    clear Ymat1
+    r = r + dr;
+end
+rmatch = r;
+%Ymat
+
+%  find the open channels, keep Ymat only in those channels
+iopen= 0;
+for i = 1 : numfun
+    if energy - thresholds(i) > 0
+        iopen = iopen + 1;
+        thresholds_open(iopen) = thresholds(i);
+        QN_open(iopen,1) = Angular_QN_ULF(i,1);
+        QN_open(iopen,2) = Angular_QN_ULF(i,2);
+        QN_open(iopen,3) = Angular_QN_ULF(i,3);
+        QN_open(iopen,4) = Angular_QN_ULF(i,4);
+        L_actual_open(iopen) = QN_open(iopen,3)/2;
+        iopenp = 0;
+        for ip = 1 : numfun
+            if energy - thresholds(ip) > 0
+                iopenp = iopenp + 1;
+                Ymatopen(iopen,iopenp) = Ymat(i,ip);
+            end
+        end
+    end
+end
+numop = iopen;
+
+
+% generate matching functions and derivatives with respect to r
+% here normalized to
+%  f -> sin(kr-L*pi/2),   g -> -cos(kr-L*pi/2)
+F = zeros(numop,numop);
+G = zeros(numop,numop);
+Fp = zeros(numop,numop);
+Gp = zeros(numop,numop);
+
+k = sqrt(2*mass*(energy-thresholds_open));
+for i = 1: numop
+    prefac = sqrt(2/k(i)/pi);  %  for energy normalization ("for want of a nail...")
+    x = k(i)*rmatch;
+    L = L_actual_open(i);
+    [sj, sy, sjp, syp] = spherical_Bessel(L,x);
+    F(i,i) = prefac * x * sj;
+    G(i,i) = prefac * x * sy;
+    Fp(i,i) = prefac * k(i)*(sj + x*sjp);
+    Gp(i,i) = prefac * k(i)*(sy + x*syp);
+end
+
+
+Kmat = (F*Ymatopen - Fp)*inv(G*Ymatopen - Gp);
+Smat = (eye(numop,numop) + 1i*Kmat)/(eye(numop,numop) - 1i*Kmat);
+clear Ymat Ymatopen
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function ymatout = logstep(energy, mass, ...
+                        r,dr,ymat, ...
+                        BField, ...
+                        TKmat, C12mat, C8mat, ...
+                        C6mat, C3mat, HBmat)
+% one step of Johnson's log derivative propagator
+%   move log derivative ymat from its value at r 
+%   to its value at r + dr  
+
+potlocal = @(r) ...  %  for use within this calculation
+    potmat(BField, r, ...
+           TKmat, C12mat, C8mat, ...
+           C6mat, C3mat, HBmat );
+
+% take two half-steps, each of size
+h = dr/2.0;
+
+del = eye(size(ymat));
+
+% first, a "Johnson correction"
+V = potlocal(r);
+%k2 = 2*mass*(energy*del-V);   % squared wave number
+ymat = ymat - (h/3.0)*(2*mass*(energy*del-V));
+clear V
+
+% first half step
+V = potlocal(r+h);
+k2 = 2.0*mass*(energy*del-V);
+%U = inv(del+(h^2/6.)*k2) * k2;
+A = del+(h^2/6.)*k2;
+U = linsolve(A,k2);
+clear A
+% intermediate y
+%ymat1 = inv(del+h*ymat) * ymat - (h/3.)*4.*U;  % 4 is a weight
+A = del+h*ymat;
+ymat1 = linsolve(A,ymat) - (h/3.)*4.*U;
+clear A U V k2
+
+%  second half step
+V = potlocal(r+2.*h);
+k2 = 2.*mass*(energy*del-V);
+%y = inv(del+h*ymat1) * ymat1 - (h/3.)*1. * k2;    %  1 is a weight
+A = del+h*ymat1;
+ymatout = linsolve(A,ymat1) - (h/3.)*1. * k2;
+
+clear V k2 A del
+
+% update values of ymat, r
+%ymatout = y;
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function [js, ys, jsp, ysp] = spherical_Bessel(nu,x)
+% regular (js) and irregular (yp) spherical bessel functions,
+%  and their derivatives jsp, ysp, with respect to argument x
+
+%  functions: Abromowith & Stegun, 10.1.1
+js = sqrt(pi/2/x) * besselj(nu+1/2,x); 
+ys = sqrt(pi/2/x) * bessely(nu+1/2,x);
+
+%  derivatives by recursion: A&S, 10.1.22
+jsp = (nu/x)*( sqrt(pi/2/x) * besselj(nu+1/2,x) )...
+              -sqrt(pi/2/x) * besselj(nu+1/2+1,x);
+ysp = (nu/x)*( sqrt(pi/2/x) * bessely(nu+1/2,x) )...
+              -sqrt(pi/2/x) * bessely(nu+1/2+1,x);
+
+end
+function angIntegral = ang_integral(li, lf, mi, mf) 
+% thrj(j1d,j2d,j3d,m1d,m2d,m3d)
+% remember to double all quantum numbers - li, lf are input already doubled
+% 2*(2*2)+1 = 9
+% take m1 = total incoming m
+% take m2 = total outgoing m
+% q is the difference between total incoming m and total outgoing m to
+% determine how much spin is transferred into the total rotation
+q = mi-mf; 
+angIntegral = sqrt(9*(2*li+1)*(2*lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
+end 
+
+function radIntegral = rad_integral(li, lf, ki, kf)
+radIntegral = ki^(li+1/2)*gamma((li+lf)/2)/...
+    (4*kf^(li-1/2)*gamma((-li+lf+3)/2)*gamma(li+3/2))...
+    * hypergeom( [(li+lf)/2, (li-lf-1)/2], li+3/2, (ki/kf)^2);
+
+end 

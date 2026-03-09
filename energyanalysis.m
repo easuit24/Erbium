@@ -67,7 +67,7 @@ for iEn = 1:length(energies)
     arealmat(iEn) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
     aimagmat(iEn) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
     abarmat(iEn) = abar;
-    
+
 end
 
 

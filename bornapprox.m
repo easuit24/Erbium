@@ -1,344 +1,305 @@
-% this notebook computes the Born approximation for our problem 
-
 clear all 
-load_Er
- 
-tic; 
-MeanDe_arr = linspace(100,120, 5); % just have a fixed depth for now
-
-C620 = -42.3;   %  inferred from Maijer; probably too big
-%C620 = 0;       % zero
-%DeltaC12 = 0.0e09;   %  in atomic units
-
-%  GF abar for n=6
-abar = 2^(-3/2)*gamma(3/4)/gamma(5/4) ...
-       *( mass*C6 )^(1/4);    %  in atomic units
-
-% GF abar for n=4
-C4 = 0.0082;
-beta4 = (2*mass*C4)^(1/2);
-E4 = 1/2/mass/beta4^2;
-abar4 = 0; %  from their formula \propto \cos( \pi / (n-2) )
-
-% NOW B-field grid 
-dBField = 1;
-BFieldlo = 1.0;
-BFieldhi = 10.0; % change this as desired for more magnetic field
-
-numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
-BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
-
-task = 0 ;  %  0 if start from beginning, 1 from other
-iBFstart = 1;
-if task == 1
-    ss = open("Ldata.mat");
-    arealmat = ss.arealmat;
-    aimagmat = ss.aimagmat;
-    BFields_gauss = ss.BFields_gauss;
-    BFields = BFields_gauss/b0;
-    iBFstart = length(BFields_gauss) + 1;
-end
+units 
+load_Er2
+setup_mod 
+muB = 0.5;
 
 
-% Initialize arrays to store results for each magnetic field
-%rateconstant_b = zeros(length(MeanDe_arr), 1);
-BFields = zeros(numBF, 1);
-
-
-energy  = 8.0e-9 % for entering the -4 -4 channel but having all above channels closed 
-
-%energy = 5.d-3/t0; % for iopening the -5 -5 channel 
-
+reducedmatrix = 4*sqrt(21); 
+muB; 
+gfactor = 1.1638;   % from Ferlaino group
 rstart = 10.0;
 dr = 0.001;
 %rgo = 1000.0; % for testing
 rgo = 10000.0;
 r = logspace(log10(rstart), log10(rgo), 5000)'; 
+r = 10; % set this for now and make more general later 
+
+
+%  all angular momentum quantum numbers doubled
+%  uncoupled lab frame
+% Spin parameters 
+jatom = 6;
+j1 = 2*jatom; 
+j2 = 2*jatom; 
+Lmin = 0;
+Lmax = 32; % previously 16 to see resonances
+%Lmax = 16; 
+m1_incident = -8;
+m2_incident = -8; 
+% set for inelastic, spin exchange scattering 
+m1_final = -10; 
+m2_final = -6; 
+% m1_incident = -10; 
+% m2_incident = -10; 
+L_incident = 0;
+ML_incident = 0;
+Mtot = m1_incident + m2_incident + ML_incident;
+
+L_final = L_incident; 
+ML_final = Mtot - m1_final - m2_final; 
+
+
+%prefactor = reducedmatrix^2*(-sqrt(30)*(muB*gfactor*6)^2*(gfactor*muB)^2)./r.^3; % array for all the different radii away
+prefactor = reducedmatrix^2*(-sqrt(30)*(muB*gfactor*6)^2*(gfactor*muB)^2);
+% q1 is the total quantum number of m1,m1' 
+% q2 is the total quantum number of m2, m2' 
+% q = q1+q2
+
+% let's say we do spin exchange - 1 spin goes from -4 to -3 and the other
+% goes from -4 to -5 so total spin is conserved 
+k = 2; 
+q1 = m1_final - m1_incident; 
+thrj1 = thrj(j1, k, j2, -m1_final, q1, m1_incident);
+q2 = m2_final - m2_incident; 
+thrj2 = thrj(j1, k, j2, -m2_final, q2, m2_incident); 
+q_tot = q1+q2; 
+thrj_combined = thrj(2,2,4,q1,q2,-q_tot); % double all quantum numbers 
+
+
+% must add together the cross section for all possible 3-j symbols!
+% So let's just try one of them 
+angular_component = prefactor*(-1)^(j1-m1_incident)*(-1)^(j2-m2_incident)*thrj1*thrj2*thrj_combined; 
+
+
+% how to find radial component: how to find ki and kf - this must be based
+% off of energy so find the difference in threshold energies for spin
+% exchange and then figure out how to incorporate C3 by multipying C20
+% result from the original paper with the cos 
+
+% find the thresold energies 
+% how to find the specific threshold that is associated with the desired
+% final outcome? 
+% look at QN_open and determine which index is the one with the correct
+% quantum numbers and find the threshold from there 
+% 
+
+
+
+%%% scattering code pasted here: 
+
+dBField = 0.5;
+dBField = 1.0; 
+BFieldlo = 5.0;
+BFieldhi = 5.0;
+%BFieldhi = 10.0;
+numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
+BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
+
+task = 0 ;  %  0 if start from beginning, 1 from other
+iBFstart = 1;
+energy = 1.d-6/t0;  %a safe bet
+energy = 1.d-9/t0; % for only opening the -6 -6 channel
+energy  = 8.0e-9;% corresponding to -4 -4 
+%energy = 1.d-7/t0; % for iopening the -5 -5 channel 
+
+rstart = 10.0;
+dr = 0.001;
+%rgo = 1000.0; % for testing
+rgo = 10000.0;
 Fixed_Step_Size = false;
 scale = 50.d0;   
 
-
-ki = sqrt(2*mass*energy/hbar^2); % wavenumber
-kmat_exchange_tot = 0; 
-scat = zeros(length(MeanDe_arr)); 
-mean_background_ratio = zeros(length(MeanDe_arr)); 
-ratio_arr = zeros(length(MeanDe_arr)); 
-
-for md = 1:length(MeanDe_arr)    
-   
-    iBF = 1; 
-    
-    MeanDe = MeanDe_arr(md)/t0; 
-    DeltaDe = 30.0/t0; %  variation in depth
-    MeanC12 = C6^2/4/MeanDe;
-    %DeltaCBO = 0.0e5;  % for coupling differnt j12 i desired
-
-    %C12 = 14028750;  % gives about 152 bound states - like the real one?
-    %C12 = 1.0e10;   %  5e10 gives about 10 basic bound states; 1e10 gives about 15
-
-    % C620 = -42.3;   %  inferred from Maijer; probably too big
-    % %C620 = 0;       % zero
-    % %DeltaC12 = 0.0e09;   %  in atomic units
-    % 
-    % %  GF abar for n=6
-    % abar = 2^(-3/2)*gamma(3/4)/gamma(5/4) ...
-    %        *( mass*C6 )^(1/4);    %  in atomic units
-    % 
-    % % GF abar for n=4
-    % C4 = 0.0082;
-    % beta4 = (2*mass*C4)^(1/2);
-    % E4 = 1/2/mass/beta4^2;
-    % abar4 = 0; %  from their formula \propto \cos( \pi / (n-2) )
-
-
-    %  initialize random number generator
-    %rng default   %  will start from same place every time
-    %rng shuffle   %  will give a new, random initial point
-
-
-    %  produce random values that characterize a realization of the
-    %  Born-Oppenheimer curves
-    %  for now, gerade states only
-    %  let each BO curve be determined by Pmbar, j12 (no j12 mixing here)
-    %disp('modification: changing one BO potential')
-    rng(9)
-    Index = 0;
-    for Ombar = 0 : 2 : j1 + j2
-        for j12 = Ombar : 4 : j1+j2
-            Index = Index + 1;
-            De = MeanDe + DeltaDe*(rand-0.5);
-            C12 = C6^2/4/De;
-            % short range coefficient matrix - for short range interactions 
-            SRcoef(Ombar+1,j12+1) = C12-MeanC12;   %  +1 since Ombar, j12 can be zero
-        end
+ymat_initial = 1.e20*eye(numfun,numfun);
+for iBF  = iBFstart :  numBF
+    BField = BFields_gauss_array(iBF)/b0;  %  convert to au here
+    BFields(iBF) = BField;
+    thresholds = diag(HBmat)*BField;
+    %fprintf('BField = %.2e \n',BField*b0)
+    %tic
+    % Do scattering for each magnetic field value - get a new Smat each
+    % time 
+    [Smat, Kmat, QN_open, thresholds_open ] ...
+              = scatter(mass, C6, MeanC12, Angular_QN_ULF, ...
+                        TKmat, C12mat, C8mat, ...
+                        C6mat, C3mat, HBmat, ...
+                        BField, energy, thresholds, ...
+                        rstart, dr, rgo, ...
+                        Fixed_Step_Size, scale, ...
+                        ymat_initial);
+    %toc
+    numopen = length(thresholds_open);
+    if iBF == iBFstart
+        Kmat_channels = zeros(numBF, numopen); 
     end
-    setup_mod
-    
-    % % NOW B-field grid 
-    % dBField = 0.1;
-    % BFieldlo = 1.0;
-    % BFieldhi = 10.0; % change this as desired for more magnetic field
-    % 
-    % numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; % number of B fields
-    % BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); % array of magnetic fields for iterating
-    % 
-    % task = 0 ;  %  0 if start from beginning, 1 from other
-    % iBFstart = 1;
-    % if task == 1
-    %     ss = open("Ldata.mat");
-    %     arealmat = ss.arealmat;
-    %     aimagmat = ss.aimagmat;
-    %     BFields_gauss = ss.BFields_gauss;
-    %     BFields = BFields_gauss/b0;
-    %     iBFstart = length(BFields_gauss) + 1;
-    % end
-
-    %  set parameters for numerical propagation
-    % energy  = 8.0e-9 % for entering the -4 -4 channel but having all above channels closed 
-    % 
-    % %energy = 5.d-3/t0; % for iopening the -5 -5 channel 
-    % 
-    % rstart = 10.0;
-    % dr = 0.001;
-    % %rgo = 1000.0; % for testing
-    % rgo = 10000.0;
-    % r = logspace(log10(rstart), log10(rgo), 5000)'; 
-    % Fixed_Step_Size = false;
-    % scale = 50.d0;   
-    % 
-    ymat_initial = 1.e20*eye(numfun,numfun);
-    
-        %%%%% set up Born Approximation calculation
-    % C3_i  = C3mat(1,1);     % dipole-dipole
-    % C6_i  = C6;           % van der Waals 
-    % C12_i = MeanC12;      % C12
-    % Veff = C12_i ./ r.^12 - C6_i ./ r.^6 + C3_i ./ r.^3; % potential for Born approximation 
-    % 
-    % scat_b = -2 * mass / hbar^2 * trapz(r, r.^2 .* Veff); % scattering length for Born approximation 
-    % ki = sqrt(2*mass*energy/hbar^2); % wavenumber
-    % crosssection_b = 4*pi/ki^2*abs(scat_b)^2;
-    % rateconstant_b(md) = hbar*ki*crosssection_b/mass; % based off of how this was done last time 
-        % store as a function of mean depth - but maybe for now store as a
-        % function of B Field... 
-        
-    %%%%% 
-    %TODO: implement an algorithm to store points where the derivative is
-    %less than a given threshold and calculate the average of the ratio
-    %at these points... store this average in an array. Make sure the above
-    %works first though 
-   
-    % Plot the above Born approximation result with the existing results..
-    % does the result seem reasonable? 
-
-    ratio_arr_B = zeros(length(numBF)); 
-    numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1;
-    % loop over magnetic fields
-    for iBF  = iBFstart :  numBF
-        BField = BFields_gauss_array(iBF)/b0;  %  convert to au here
-        BFields(iBF) = BField;
-        thresholds = diag(HBmat)*BField;
-        % Do scattering for each magnetic field value - get a new Smat each
-        % time 
-        [Smat, Kmat, QN_open, thresholds_open ] ...
-                  = scatter(mass, C6, MeanC12, Angular_QN_ULF, ...
-                            TKmat, C12mat, C8mat, ...
-                            C6mat, C3mat, HBmat, ...
-                            BField, energy, thresholds, ...
-                            rstart, dr, rgo, ...
-                            Fixed_Step_Size, scale, ...
-                            ymat_initial);
-        %toc
-        numopen = length(thresholds_open);
-
-        %  find incident channel among the newly-indexed open ones
-        for i = 1: numopen
-            if QN_open(i,1) == Angular_QN_ULF(incident,1) & ...
-               QN_open(i,2) == Angular_QN_ULF(incident,2) & ...
-               QN_open(i,3) == Angular_QN_ULF(incident,3) & ...     
-               QN_open(i,4) == Angular_QN_ULF(incident,4)
-               is = i; % this is the incident channel
-               elasticIndex(iBF) = is; 
-            end 
-        end
-
-        % targets for spin exchange are +/- the incident channel QNs
-        target_m1 = m1_incident - 2; 
-        target_m2 = m2_incident + 2; 
-
-        itarget = find(QN_open(:,1) == target_m1 & QN_open(:,2) == target_m2);
-
-        %%%%%%%
-
-
-        for j = 1:numopen % loop over channels 
-            %g = 2; 
-            %Sii = Smat(is,is);
-
-            if j == is
-                g = 2; 
-                Sii = Smat(is,is);
-                crosssection = g*pi*abs(1 - Sii)^2/ki^2;
-                Kmat_channels(iBF) = hbar*ki * crosssection/mass;
-            elseif any(j == itarget)
-                % Note: Add the cross sections instead of the rate constants! 
-                g = 1;
-                Sij = Smat(is, j); 
-                crosssection_ex(j) = g*pi*abs(Sij)^2/ki^2;
-
-                %Kmat_channels_ex(iBF) = hbar*ki * crosssection_ex(j)/mass; 
-                %kmat_exchange_tot = kmat_exchange_tot + hbar*ki * crosssection_ex/mass;
-
-
-            else
-                if j <= is
-                    g = 1; 
-                    Sij = Smat(is, j); 
-                    inelastic_crosssection(j) = g*pi*abs(Sij)^2/ki^2; 
-                end 
-
-            end 
-
-        end
-        total_inelastic_crosssection = sum(inelastic_crosssection); 
-        Kmat_channels_inelastic(iBF) = hbar*ki*total_inelastic_crosssection/mass;
-        Kmat_exchange(iBF) = hbar*ki*sum(crosssection_ex)/mass;
-        %exchange_rate = Kmat_channels_ex;
-       
-
-
-        % arealmat(iBF) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
-        % aimagmat(iBF) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
-        % abarmat(iBF) = abar;
-        
-        % calculate scattering length to plot against depth
-        phase = 0.5*angle(Smat(is,is)); 
-        scat(md) = phase*l0./ki;
-        
-        clear Smat Kmat
-        %Smat_all(iBF,:,:) = Smat;
-        %Tmat(iBF,:,:) = 1i*(Smat-eye(numopen,numopen));
-
-        BFields_gauss = BFields*b0;
-        %save("Ldata.mat", "BFields_gauss", "arealmat", "aimagmat")
-        ratio_arr_B(iBF) = Kmat_channels_inelastic/Kmat_exchange; 
-        spin_ex = Kmat_exchange; 
-        spin_sr = Kmat_channels_inelastic; 
-        
+    %  find incident channel among the newly-indexed open ones
+    for i = 1: numopen
+        if QN_open(i,1) == Angular_QN_ULF(incident,1) & ...
+           QN_open(i,2) == Angular_QN_ULF(incident,2) & ...
+           QN_open(i,3) == Angular_QN_ULF(incident,3) & ...     
+           QN_open(i,4) == Angular_QN_ULF(incident,4)
+           is = i; % this is the incident channel
+        end 
     end
-
-    % % elastic rate constant: exiting in -4 -4 
-    % disp("Rate Constant: " + Kmat_channels*l0^3/tau0)
-    % % inelastic rate constant: exiting not in -4 -4
-    % disp("Relaxation Rate Constant: " + Kmat_channels_inelastic*l0^3/tau0) 
-    % % spin exchange
-    % disp("Spin Exchange Rate Constant: " + Kmat_exchange*l0^3/tau0) 
+    for i  = 1:numopen
+        ki = sqrt(2*mass*energy/hbar^2);
+        Sij = Smat(i, is); 
+        g = 1; 
+        crosssection = g*pi*abs(Sij)^2/ki^2;
+        Kmat_channels(iBF, i) = hbar*ki*crosssection/mass;
+    end
     
-    % find the derivatives: 
-    dydx_sr = diff(Kmat_channels_inelastic)./diff(BFields_gauss_array); 
-    dydx_ex = diff(Kmat_exchange)./diff(BFields_gauss_array); 
-    dthreshold = 5.0e-6; 
-    % small derivatives 
-    sr_indices = abs(dydx_sr) < dthreshold; 
-    ex_indices = abs(dydx_ex) < dthreshold; 
-    srex_intersect = sr_indices & ex_indices; 
-    spinexchange_condensed = Kmat_exchange(srex_intersect); 
-    spinrelax_condensed = Kmat_channels_inelastic(srex_intersect); 
-    background_ratio = spinrelax_condensed./spinexchange_condensed; 
-    mean_background_ratio(md) = mean(background_ratio); 
-    
-    ratio = Kmat_channels_inelastic/Kmat_exchange; 
-    ratio_arr(md) = ratio; 
-end     
+    ki = sqrt(2*mass*energy/hbar^2); % wavenumber 
+    % start: ES Modifications 
+    g = 1; % say we are in the same state for now - make this conditional later 
+    crosssection = g*pi*abs(Smat(is,is))^2/ki^2; 
+    rateconst(iBF) = hbar*ki*crosssection/mass; 
+ 
+    % End: ES modifications 
+    arealmat(iBF) = real(1i*(Smat(is,is)-1))/2/ki; % total retention 
+    aimagmat(iBF) = -imag(1i*(Smat(is,is)-1))/2/ki; % total loss 
+    abarmat(iBF) = abar;
+    clear Smat Kmat
+    %Smat_all(iBF,:,:) = Smat;
+    %Tmat(iBF,:,:) = 1i*(Smat-eye(numopen,numopen));
 
-figure;
-plot(BFields_gauss_array, ratio_arr_B, 'LineWidth', 2)
-xlabel('B-Field') 
-ylabel('\beta_{sr}/\beta_{ex}')
+    BFields_gauss = BFields*b0;
+    save("Ldata.mat", "BFields_gauss", "arealmat", "aimagmat")
+end
 
-% these seem to be the correct order of magnitude... just need to find
-% error in Born approximation  
-figure; 
-plot(BFields_gauss_array, spin_sr*l0^3/tau0, '-r', 'LineWidth', 2)
-hold on
-plot(BFields_gauss_array, spin_ex*l0^3/tau0, '-b', 'LineWidth',2)
-xlabel('B-Field') 
-ylabel('\beta')
+en_ind = all(QN_open(:,1:4) == [m1_incident, m2_incident,L_incident, ML_incident],2);
+thresholds_open = thresholds_open'; 
+inc_ens = thresholds_open(en_ind, :); % fix this indexing
+
+en_ind_out = all(QN_open(:,1:4) == [m1_final, m2_final, L_final, ML_final],2);
+final_ens = thresholds_open(en_ind_out', :);
+
+% find the wavenumbers ki and kf 
+% Note: define inc_ens and final_ens
+ki = sqrt(2*mass*(energy-inc_ens)/hbar^2); 
+kf = sqrt(2*mass*(energy-final_ens)/hbar^2); 
+
+% write sigma bar right away - loop over the possible l and l' up to
+% Lincident and Lfinal 
 
 
-figure; 
-plot(Kmat_channels_inelastic/max(Kmat_channels_inelastic), 'LineWidth', 2); 
-hold on; 
-plot(Kmat_exchange/max(Kmat_exchange), 'LineWidth', 2); 
-plot(sr_indices & ex_indices, 'LineStyle', '--'); 
-ylim([-0.5,1.5]); 
-xlabel('Magnetic Field (Gauss)'); 
-ylabel('\beta');
+sigma_bar = 0; 
+for l = 0:2:Lmax
+    for lp = 0:2:Lmax 
 
-figure; 
-plot(MeanDe_arr, mean_background_ratio, 'LineWidth', 2); 
-xlabel('Depth (K)'); 
-ylabel('\beta_{sr}/\beta_{ex}');
+        C = ang_integral(l, lp, m1_incident+m2_incident, m1_final+m2_final);
+        Ra = rad_integral(l, lp, ki, kf); % these are magnitudes of k
+        fprintf('Sigma Bar: %f\n', sigma_bar)
+        disp(C) 
+        disp(Ra) 
+        % should have an odd/even clause for l-lp since it can determine
+        % +/- sign since previously had a i 
+        if C == 0
+            Ra = 0; 
+        end 
+        sigma_bar = C^2*Ra^2*1i^(2*(l-lp)) + sigma_bar; 
+    end 
+end 
 
-elapsedTime = toc; 
-disp(['Elapsed time: ', num2str(elapsedTime), ' seconds']); 
+avgcrosssection_se = (mass^2/(2*pi)^2)*sigma_bar*angular_component; 
+beta_se = hbar*ki*avgcrosssection_se/mass*l0^3/tau0; 
+fprintf('Angular Cross Section (Spin Exchange): %f\n', avgcrosssection_se)
+% Helper functions
+function [ tj cg ] = thrj(j1d,j2d,j3d,m1d,m2d,m3d)
+%thrj  three-j symbol, based on the old FORTRAN version
+%   quantum numbers j1d, j2d, etc should be entered as
+%   twice the actual values j1, j2, etc of the quantum numbers desired
+%   this is so the quantum numbers can be half integers, but described
+%   by integer arithmetic; this was a thing in FORTRAN, don't really know
+%   if MATLAB cares
+%
+% on output: get the threej symbol tj =  ( j1 j2 j3 )
+%                                        ( m1 m2 m3 )
+%
+% and the Clebsch-Gordan coefficient cg = <j1 m1 j2 m2 | j2 -m3 >
+% why not?
 
-% now plot the rate constant Born approximation: this is just the Born
-% approximation for elastic scattering... is there a different one for
-% other scattering? Look into this approximation more to understand it. 
-% figure; 
-% plot(BFields_gauss_array, rateconstant_b, 'g--', 'LineWidth', 2) 
-% xlabel('B-Field') 
-% ylabel('\beta')
+% assume nothing
+tj = 0;
+cg = 0;
 
-% figure; 
-% plot(MeanDe_arr, scat, 'LineWidth', 2)
-% xlabel('Mean Depth') 
-% ylabel('Scattering Length') 
-% 
-% figure; 
-% loglog(MeanDe_arr, ratio_arr, 'LineWidth', 2)
-% xlabel('Mean Depth') 
-% ylabel('\beta_{sr}/\beta_{ex}') 
+%  each angular momentum is either integer of half integer;
+%  the difference j-m must be an integer
+%  ie the difference jd-md musrt be even
+if mod(j1d-m1d,2) ~= 0
+    return
+end
+if mod(j2d-m2d,2) ~= 0
+    return
+end
+if mod(j3d-m3d,2) ~=0
+    return
+end
+% also j's must be larger than m's of course
+if j1d < abs(m1d)
+    return
+end
+if j2d < abs(m2d)
+    return
+end
+if j3d < abs(m3d)
+    return
+end
+% next check for triangularity conditions
+if j1d+j2d-j3d < 0 
+    return
+end
+if j2d+j3d-j1d < 0
+    return
+end
+if j3d+j1d-j2d < 0
+    return
+end
+if j3d < abs(j1d-j2d)
+    return
+end
+if m1d+m2d+m3d ~= 0 
+    return
+end
+if mod((j1d+j2d+j3d),2) ~= 0
+    return
+end
+
+
+%  establish limits of summation in formula (2.34) of Brink and Satchler
+numin1 = -(j3d-j1d-m2d)/2;
+numin2 = -(j3d-j2d+m1d)/2;
+numin = max(0,max(numin1,numin2));
+
+numax1 = (j1d-m1d)/2;
+numax2 = (j2d+m2d)/2;
+numax3 = (j1d+j2d-j3d)/2;
+numax = min(numax1,min(numax2,numax3));
+
+
+if numin > numax 
+    return
+end
+
+%  go now and calculate,using actual angular momenta
+j1 = j1d/2;
+j2 = j2d/2;
+j3 = j3d/2;
+m1 = m1d/2;
+m2 = m2d/2;
+m3 = m3d/2;
+Deltaln = ...
+    (gammaln(j1+j2-j3+1) + gammaln(j1+j3-j2+1) + gammaln(j2+j3-j1+1) ...
+     - gammaln(j1+j2+j3+1+1) )/2 ;
+phase = 1/(-1)^(j1-j2-m3) ;
+prefacln = Deltaln + ...
+     (gammaln(j1+m1+1) + gammaln(j1-m1+1) ...
+     +gammaln(j2+m2+1) + gammaln(j2-m2+1) ...
+     +gammaln(j3+m3+1) + gammaln(j3-m3+1) )/2 ;
+ 
+sum = 0;
+for nu = numin: numax
+    termln = gammaln(j1-m1-nu+1) + gammaln(j3-j2+m1+nu+1) ...
+           + gammaln(j2+m2-nu+1) + gammaln(j3-j1-m2+nu+1) ...
+           + gammaln(nu+1) + gammaln(j1+j2-j3-nu+1);
+    sum = sum + (-1)^nu ...
+        * exp( prefacln - termln);
+end
+
+tj = phase * sum;
+cg = sum * sqrt(2*j3+1);
+
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -381,7 +342,7 @@ while r < rgo
     else     
         %Vtemp = potlocal(r);
         %V_local = eigs(Vtemp,1,'smallestreal'); 
-        V_local = MeanC12/r^12 - C6/r^6; %%%% Look at this more closely - how is the potential curve being defined?????
+        V_local = MeanC12/r^12 - C6/r^6;
         if energy-V_local <= 0
             %  nothing; de Broglie wavelength is imaginary
         else   % dr is fraction of local deBroglie wavelength
@@ -474,10 +435,9 @@ del = eye(size(ymat));
 
 % first, a "Johnson correction"
 V = potlocal(r);
- 
 %k2 = 2*mass*(energy*del-V);   % squared wave number
 ymat = ymat - (h/3.0)*(2*mass*(energy*del-V));
-clear V 
+clear V
 
 % first half step
 V = potlocal(r+h);
@@ -523,5 +483,22 @@ ysp = (nu/x)*( sqrt(pi/2/x) * bessely(nu+1/2,x) )...
               -sqrt(pi/2/x) * bessely(nu+1/2+1,x);
 
 end
-    
 
+function angIntegral = ang_integral(li, lf, mi, mf) 
+% thrj(j1d,j2d,j3d,m1d,m2d,m3d)
+% remember to double all quantum numbers - li, lf are input already doubled
+% 2*(2*2)+1 = 9
+% take m1 = total incoming m
+% take m2 = total outgoing m
+% q is the difference between total incoming m and total outgoing m to
+% determine how much spin is transferred into the total rotation
+q = mi-mf; 
+angIntegral = sqrt(9*(2*li+1)*(2*lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
+end 
+
+function radIntegral = rad_integral(li, lf, ki, kf)
+radIntegral = ki^(li+1/2)*gamma((li+lf)/2)/...
+    (4*kf^(li-1/2)*gamma((-li+lf+3)/2)*gamma(li+3/2))...
+    * hypergeom( [(li+lf)/2, (li-lf-1)/2], li+3/2, (ki/kf)^2);
+
+end 

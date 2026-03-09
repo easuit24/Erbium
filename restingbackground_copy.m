@@ -119,9 +119,12 @@ for md = 1:length(MeanDe_arr)
     end
 
     %%% add in changing a curve - but as each curve is changed, make sure
-    %%% that the curve is changed each time the depths are changed 
+    %%% that the curve is changed each time the depths are changed
+    % NOTE: uncomment the following block to change a curve
     rng(1)
-    curve_index = 7; 
+    index = 1; 
+    % curve_index = 9;
+    curve_index = 2*(index-1); 
     Ombarchange = (j1+j2-curve_index); % choose the 2nd highest curve 
     SRcoef(Ombarchange+1,Ombarchange+1)
     De = MeanDe + DeltaDe*(rand-0.5);
@@ -310,7 +313,7 @@ for md = 1:length(MeanDe_arr)
     ratio_arr(md) = ratio; 
 end     
 
-save("betadata_adjustcurve8_2.mat", "BFields_gauss_array", "spin_sr_arr", "spin_ex_arr")
+save("betadata_adjustcurve1_4.mat", "BFields_gauss_array", "spin_sr_arr", "spin_ex_arr")
 
 figure;
 plot(BFields_gauss_array, ratio_arr_B, 'LineWidth', 2)
