@@ -6,7 +6,7 @@ mkdir(folderName);
 tic; 
 
 % parameters 
-MeanDe = 30.0; 
+MeanDe = 10.0; 
 % C6 = 0; 
 % C12 = 0;
 % C620 = 0;
@@ -20,7 +20,7 @@ energies = logspace(-16,-10,10);
 
 
 %energies = logspace(-14,-6, 10); % try this just for fun - see if the threshold behavior dies out
-rstart = 10.0;  
+rstart = 5.0;  
 %rstart = 100; % try something drastic to see if that changes things 
 dr = 0.001;
 rgo = 10000.0;
@@ -63,6 +63,7 @@ ymat_initial = 1.e20*eye(numfun,numfun);
 % BField = BFields_gauss_array(iBF)/b0; 
 % BFields(iBF) = BField;
 BField = 1.0/b0; 
+BField = 12.03/b0; 
 %BField = 9.5/b0; % this was the resonance spot in Bva analysis
 thresholds = diag(HBmat)*BField;
 maxLstorage = 11; 
@@ -190,6 +191,8 @@ for iEn = 1:length(energies)
     % ratio_arr_B(iBF) = Kmat_channels_inelastic(iBF)/Kmat_exchange(iBF);
     Kmat_channels(iEn) = hbar*ki * sigma_total_elastic(iEn)/mass;
 end
+
+%% 
 sigma_total_elastic_scaled = (sigma_total_elastic/(max(max(C3mat))*mass)^2); 
 disp("Time")
 disp(toc) 

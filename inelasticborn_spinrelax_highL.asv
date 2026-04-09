@@ -2,8 +2,8 @@ clear all
 tic; 
 units 
 load_Er2
-setup_dipoleanalysis
-
+%setup_dipoleanalysis
+setup_mod
 
 reducedmatrix = sqrt(2*jatom*(2*jatom+1)*(2*2*jatom+1)); 
 muB; 
@@ -32,6 +32,8 @@ m1_final_vals = [ -8, -10, -12];
 m2_final_vals = [-8, -10, -12]; 
 
 L_incident = 8; % changing this from 0 from spin exchange 
+L_incident = 0; 
+L_incident = 4; 
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
 
@@ -40,10 +42,12 @@ ML_final = Mtot - m1_final - m2_final; % this accounts for spin relaxation
 
 
 prefactor = reducedmatrix^2*(-sqrt(30)*(gfactor*muB)^2);
-energies = logspace(-12,-10,10); 
+energies = logspace(-18,-14,10); 
 BField = 1.0/b0; 
 maxLstorage = 11; 
 T_matrix_relaxation_L = zeros(length(energies), maxLstorage); 
+dipole_conversion = 2*mass * max(max(C3mat(:))) / hbar^2;
+dipole_conversion = 2*mass/hbar^2; 
 for iEn = 1:length(energies)
     energy = energies(iEn);
     ki = sqrt(2*mass*energy/hbar^2); % Incident wavenumber
@@ -87,11 +91,14 @@ for iEn = 1:length(energies)
                 if C == 0, continue; end
                 
                 % Ra = Radial integral
+                %
+% ki = ki * dipole_conversion; 
+% kf = kf * dipole_conversion; 
                 Ra = rad_integral(L_incident/2, lp/2, ki, kf);
                 
                 % The T-matrix element in Born Approximation
                 % T = A_spin * C * Ra
-                T_mat_element = A_spin * C * Ra;
+                T_mat_element = 4*pi*dipole_conversion*A_spin * C * Ra;
                 
                 % Accumulate the T-matrix squared for 
                 T_sq = abs(T_mat_element)^2;
@@ -121,12 +128,10 @@ q = mi-mf;
 angIntegral = sqrt(5*(li+1)*(lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
 end 
 
-function radIntegral = rad_integral(li, lf, ki, kf, mass, C3m)
+function radIntegral = rad_integral(li, lf, ki, kf)
 % let's try multiplying all ki by the dipole conversion factor 
-dipole_conversion = 2*mass * max(max(C3mat(:))) / hbar^2;
-ki = ki * dipole_conversion; 
-kf = kf * dipole_conversion; 
-radIntegral = ki^(li+1/2)*gamma((li+lf)/2)/...
+
+radIntegral = (pi/2)*(1/sqrt(ki*kf))*ki^(li+1/2)*gamma((li+lf)/2)/...
     (4*kf^(li-1/2)*gamma((-li+lf+3)/2)*gamma(li+3/2))...
     * hypergeom( [(li+lf)/2, (li-lf-1)/2], li+3/2, (ki/kf)^2);
 

@@ -1,0 +1,166 @@
+clear all 
+load_Er2
+% folderName = 'curveanalysis_onlydipole2'; 
+% mkdir(folderName);   
+
+tic; 
+
+% parameters 
+MeanDe = 1.0; 
+C6 = 0; 
+C12 = 0;
+C620 = 0;
+
+
+
+%energies = logspace(-14,-6, 10); % try this just for fun - see if the threshold behavior dies out
+rstart = 15.0;  
+rstart = 100; % try something drastic to see if that changes things 
+dr = 0.001;
+rgo = 10000.0;
+rgo = 1000000.0;
+rgo = 50000; 
+Fixed_Step_Size = false;
+scale = 50.d0;   
+
+SRcoef = zeros(j1+j2+1, j1+j2+1); 
+setup_mod; 
+%setup_dipoleanalysis; 
+
+
+C6mat(:) = 0;   
+C12mat(:) = 0;  
+C8mat(:) = 0;   
+% C3mat is preserved for dipole
+
+
+
+% B-field grid 
+dBField = 0.5; % Finer step often helps with resonance resolution
+%BFieldlo = 0.0;
+%BFieldhi = 10.0; 
+BFieldlo = 1.0;
+BFieldhi = 10.0; 
+numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; 
+BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); 
+
+% Initialize Storage
+Kmat_channels_inelastic = zeros(numBF, 1);
+Kmat_exchange = zeros(numBF, 1);
+ratio_arr_B = zeros(numBF, 1);
+BFields = zeros(numBF, 1);
+
+% Define Initial Boundary Condition (Infinite Hard Wall at rstart)
+ymat_initial = 1.e20*eye(numfun,numfun);
+
+energies = logspace(-12,-10,10); 
+% fprintf('Starting Loop over %d B-Fields...\n', numBF);
+% BField = BFields_gauss_array(iBF)/b0; 
+% BFields(iBF) = BField;
+%BField = 1.0/b0; 
+%BField = 6.8/b0;
+%
+maxLstorage = 11; 
+partial_sigma_arr = zeros(length(energies), maxLstorage); 
+
+Lmatindex = 1; 
+
+Lmin = 0;
+Lmax = 32; 
+m1_incident = -8;
+m2_incident = -8; 
+% set for inelastic, now lets set for spin relaxation - to -5,-5
+m1_final = -10; 
+m2_final = -10; 
+m1_final_vals = [ -8, -10, -12]; 
+m2_final_vals = [-8, -10, -12]; 
+
+
+L_incident = 8; % changing this from 0 from spin exchange 
+ML_incident = 0;
+Mtot = m1_incident + m2_incident + ML_incident;
+
+L_final = L_incident; 
+ML_final = Mtot - m1_final - m2_final; % this accounts for spin relaxation
+
+
+
+%BField = 1.0/b0; 
+maxLstorage = 11; 
+T_matrix_relaxation_numeric = zeros(length(energies), maxLstorage); 
+energy = 1e-11; 
+for iBF = 1:numBF
+
+    %sigma_total_elastic(iEn) = 0 ; 
+    BField = BFields_gauss_array(iBF)/b0; 
+    thresholds = diag(HBmat)*BField;
+    [Smat, Kmat, QN_open, thresholds_open] ...
+              = scatter(mass, C6, C12, Angular_QN_ULF, ...
+                        TKmat, C12mat, C8mat, ...
+                        C6mat, C3mat, HBmat, ...
+                        BField, energy, thresholds, ...
+                        rstart, dr, rgo, ...
+                        Fixed_Step_Size, scale, ...
+                        ymat_initial);
+    
+
+    numopen = length(thresholds_open);
+    
+    % Wavenumber
+    ki = sqrt(2*mass*energy/hbar^2); 
+    ki_arr(iEn) = ki;
+    
+    % Identify indident channel
+    is = []; 
+    for i = 1:numopen
+        % Remember: QN_open columns are [m1, m2, 2*L, ML]
+        if QN_open(i,1) == m1_incident && ...
+           QN_open(i,2) == m2_incident && ... 
+           QN_open(i,3) == L_incident && ... 
+           QN_open(i,4) == ML_incident
+           
+           is = i; 
+           break; % exit loop
+        end 
+    end 
+    
+
+    % if isempty(is)
+    %     continue; 
+    % end
+
+    % Loop over all Open Outgoing Channels to find RELAXATION
+    for f = 1:numopen
+        m1_f = QN_open(f,1);
+        m2_f = QN_open(f,2);
+        Lnumerics = QN_open(f,3); 
+        Lphysical = Lnumerics / 2; 
+        
+        % RELAXATION CHECK: Are the final spins a lower energy state?
+        if (m1_f + m2_f) < (m1_incident + m2_incident)
+
+            S_if = Smat(is, f);
+            
+            % For inelastic scattering (i ~= f), T = -S. 
+            % Therefore |T|^2 is just |S|^2.
+            T_sq = abs(S_if)^2;
+            
+            Lmatindex = round(Lphysical/2) + 1; 
+            
+            if Lmatindex <= maxLstorage
+                T_matrix_relaxation_numeric(iBF, Lmatindex) = ...
+                    T_matrix_relaxation_numeric(iBF, Lmatindex) + T_sq;
+            end
+            
+        end 
+    end
+
+end
+
+% now plot the results for T_matrix^2 against BField: How does this behave
+% at background and at resonance? 
+figure; 
+loglog(BFields_gauss_array, abs(T_matrix_relaxation_numeric(:,1)).^2)
+hold on;
+loglog(BFields_gauss_array, abs(T_matrix_relaxation_numeric(:,2)).^2)
+loglog(BFields_gauss_array, abs(T_matrix_relaxation_numeric(:,3)).^2)

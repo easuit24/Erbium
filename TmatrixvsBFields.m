@@ -21,7 +21,7 @@ MeanDe = 10.0;
 
 %energies = logspace(-14,-6, 10); % try this just for fun - see if the threshold behavior dies out
  
-rstart = 10; % try something drastic to see if that changes things 
+rstart = 5.0; % make sure that this is converged!! 
 dr = 0.001;
 rgo = 10000.0;
 rgo = 100000.0;
@@ -45,8 +45,8 @@ setup_dipoleanalysis;
 dBField = 0.005; % Finer step helps with resonance resolution
 %BFieldlo = 0.0;
 %BFieldhi = 10.0; 
-BFieldlo = 16.2;
-BFieldhi = 16.6; 
+BFieldlo = 11.6;
+BFieldhi = 12.4; 
 numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; 
 BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); 
 
@@ -68,6 +68,7 @@ ymat_initial = 1.e20*eye(numfun,numfun);
 maxLstorage = 11; 
 % partial_sigma_arr = zeros(length(energies), maxLstorage); 
 T_matrix_BField = zeros(numBF, maxLstorage); 
+T_matrix_complete = zeros(numBF,1); 
 Lmatindex = 1; 
 energy = 1e-12; % set this as the energy, but might need to lower it 
 ki = sqrt(2*mass*energy/hbar^2); % wavenumber
@@ -129,7 +130,7 @@ for iBF = 1:numBF
                     delta_if = (is == f); % Kronecker delta: 1 if i==f, 0 otherwise
                     %T_matrix_element = delta_if - S_if;
                     T_matrix_element = delta_if - S_if;
-                    
+                    T_matrix_complete(iBF) = T_matrix_complete(iBF) + T_matrix_element ; 
                     g_factor = 1; % 2 for same state which is what we get for elastic?
                     % there are 2L+1 m states for a given L state? 
                     % perhaps look into fixing the 2L+1 factor here later
@@ -196,9 +197,11 @@ disp("Time")
 disp(toc) 
 
 figure; 
-loglog(BFields_gauss_array, abs(T_matrix_BField(:,1)).^2, "LineWidth", 2);
+loglog(BFields_gauss_array, abs(T_matrix_complete(:,1)).^2, "-g", "LineWidth", 2, "DisplayName","full");
 hold on; 
-loglog(BFields_gauss_array, abs(T_matrix_BField(:,2)).^2, "LineWidth", 2)
+loglog(BFields_gauss_array, abs(T_matrix_BField(:,1)).^2, "-b", "LineWidth", 2, "DisplayName","s-wave");
+loglog(BFields_gauss_array, abs(T_matrix_BField(:,2)).^2, "-r", "LineWidth", 2, "DisplayName","p-wave");
+legend show
 %% 
 sigma_total_elastic_scaled = (sigma_total_elastic/(max(max(C3mat))*mass)^2); 
 disp("Time")

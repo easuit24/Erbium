@@ -9,7 +9,7 @@
 %     thus j12=even, and gerade states
 
 %  pick your atom - Er for now
-%load_Er %add this back in later!!! (modified 10/26) 
+%load_Er2 %add this back in later!!! (modified 10/26) 
 Basis = 'This time its the Uncoupled Lab Frame Basis';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -30,7 +30,8 @@ m2_incident = -8;
 % m1_incident = -10; 
 % m2_incident = -10; 
 L_incident = 0; %previously 0
-L_incident = 8; % this was activated for the Born approximation stuff
+%L_incident = 4; % now try starting at d-wave (as of 3/17) 
+%L_incident = 8; % this was activated for the Born approximation stuff
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
 %mu = -g*mu_B*j1 % dipole moment 

@@ -1,30 +1,55 @@
 % This file is implements the Born approximation according to the paper
 % Bohn et. al. 2009
-% should there be setup_mod here? 
+
 l = 0; 
 lp = 2; 
 m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
 mp = 0; 
+m1 = -12;
+m2 = -12; 
+j_atom = 6; 
 %energies = logspace(-2,2, 10); 
 %energies = logspace(-16,-10, 10); 
 energies2 = logspace(-16,-10, 10); 
 dipole_conversion = 2*mass * max(max(C3mat(:))) / hbar^2;
+%%% try this: 
+m1_inc = Angular_QN_ULF(incident, 1);
+m2_inc = Angular_QN_ULF(incident, 2);
+ML_inc = Angular_QN_ULF(incident, 4); 
+
+target_L_numerics = 4;
+
+d_wave_idx = find(Angular_QN_ULF(:,1) == m1_inc & ...
+                  Angular_QN_ULF(:,2) == m2_inc & ...
+                  Angular_QN_ULF(:,3) == target_L_numerics & ...
+                  Angular_QN_ULF(:,4) == ML_inc);
+
+% 3. Extract the off-diagonal coupling between the s-wave and d-wave
+dipole_conversion = 2*mass * abs(C3mat(d_wave_idx, incident)) / hbar^2;
+
+%%% 
+
+
 ki_arr = sqrt(2*mass*energies2./hbar^2)*dipole_conversion;
+reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
 
 % define dipole length: assume they come in with the same m such that m1 =
 % m2
-%dipole_length = mass*(gfactor*muB*m) ...
-                 % *(gfactor*muB*m);
+dipole_length = mass*(gfactor*muB*m) ...
+                  *(gfactor*muB*m);
 
 % radial component given by Gamma
 G = 32/(3*(l+1)*(l+2));
 
 % angular component given by C and 3-j symbols 
 C = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
-Ra_e = radIntegral(l,lp);
-T_mat = -ki_arr.*C*radIntegral(l,lp); 
+coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,0,0,0)*thrj(2*j_atom, 2, 2*j_atom, -m1, 0, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2, 0, m2)/(m1*m2/2); 
+coef = sqrt(5)/4; 
+T_mat = -ki_arr.*coef*C*radIntegral(l,lp); 
 
-%T_mat = -ki_arr.*C*G/8; 
+%coef = sqrt(5); 
+coef = 1; 
+T_mat = -2*ki_arr.*radIntegral(l,lp); 
 
 sigma = 2*pi./(ki_arr).^2.*abs(T_mat).^2; 
 
@@ -34,7 +59,7 @@ T_mat22 = -ki_arr.*cll(2,2,0)*radIntegral(2,2);
 T_mat24 = -ki_arr.*cll(2,4,0)*radIntegral(2,4); 
 %T_mat04 = -ki_arr*cll(0,4,0)*radIntegral(0,4); 
 
-
+%%
 figure; 
 loglog(energies,sigma, "LineWidth", 2)
 xlabel("Energy")
@@ -147,7 +172,7 @@ end
 
 function radialComponent = radIntegral(l, lp)
 numerator = pi*gamma((l+lp)/2);
-denominator = gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
+denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
 radialComponent = numerator/denominator; 
 end 
 

@@ -12,12 +12,6 @@ C12 = 0;
 C620 = 0;
 
 
-% Scattering Parameters
-energy  = 8.0e-9; % 
-energy = 3.2e-9; 
-
-energies = logspace(-16,-10,10); 
-
 
 %energies = logspace(-14,-6, 10); % try this just for fun - see if the threshold behavior dies out
 rstart = 5.0;  
@@ -25,13 +19,13 @@ rstart = 5.0;
 dr = 0.001;
 rgo = 10000.0;
 rgo = 1000000.0;
+%rgo = 50000; 
 Fixed_Step_Size = false;
 scale = 50.d0;   
-ki = sqrt(2*mass*energy/hbar^2); 
 
 SRcoef = zeros(j1+j2+1, j1+j2+1); 
 %setup_mod; 
-setup_dipoleanalysis; 
+setup_mod; 
 
 
 C6mat(:) = 0;   
@@ -59,6 +53,7 @@ BFields = zeros(numBF, 1);
 % Define Initial Boundary Condition (Infinite Hard Wall at rstart)
 ymat_initial = 1.e20*eye(numfun,numfun);
 
+energies = logspace(-18,-15,10); 
 % fprintf('Starting Loop over %d B-Fields...\n', numBF);
 % BField = BFields_gauss_array(iBF)/b0; 
 % BFields(iBF) = BField;
@@ -67,8 +62,52 @@ BField = 6.8/b0;
 thresholds = diag(HBmat)*BField;
 maxLstorage = 11; 
 partial_sigma_arr = zeros(length(energies), maxLstorage); 
-T_matrix_2 = zeros(length(energies), maxLstorage); 
+
 Lmatindex = 1; 
+
+Lmin = 0;
+Lmax = 32; 
+m1_incident = -8;
+m2_incident = -8; 
+% set for inelastic, now lets set for spin relaxation - to -5,-5
+m1_final = -10; 
+m2_final = -10; 
+% m1_final_vals = [ -8, -10, -12]; 
+% m2_final_vals = [-8, -10, -12]; 
+
+
+L_incident = 0; % changing this from 0 from spin exchange 
+L_incident = 4; % now looking at starting from d-wave (3/17) 
+ML_incident = 0;
+Mtot = m1_incident + m2_incident + ML_incident;
+
+%L_final = L_incident; 
+ML_final = Mtot - m1_final - m2_final; % this accounts for spin relaxation
+
+
+
+BField = 1.0/b0; 
+maxLstorage = 11; 
+T_matrix_relaxation_numeric = zeros(length(energies), maxLstorage); 
+
+incident_index = [];
+for i = 1:size(Angular_QN_ULF, 1)
+    if Angular_QN_ULF(i,1) == m1_incident && ...
+       Angular_QN_ULF(i,2) == m2_incident && ... 
+       Angular_QN_ULF(i,3) == L_incident && ... 
+       Angular_QN_ULF(i,4) == ML_incident
+       
+       incident_index = i; 
+       break; 
+    end 
+end 
+
+if isempty(incident_index)
+    error('Incident channel not found in Angular_QN_ULF! Check your quantum numbers.');
+end
+
+% Extract the internal energy of the incoming atoms
+E_threshold_incident = thresholds(incident_index)
 
 for iEn = 1:length(energies)
 
@@ -85,110 +124,56 @@ for iEn = 1:length(energies)
     
 
     numopen = length(thresholds_open);
-    % Identify Spin Exchange Targets (m1-2, m2+2)
-    if exist('m1_incident', 'var')
-        target_m1 = m1_incident - 2; 
-        target_m2 = m2_incident + 2; 
-        itarget = find(QN_open(:,1) == target_m1 & QN_open(:,2) == target_m2);
-
-    end 
-    crosssection_ex = 0; 
-    inelastic_sum = 0;
-    ki = sqrt(2*mass*energies(iEn)/hbar^2); % wavenumber
+    
+    % Wavenumber
+    ki = sqrt(2*mass*energies(iEn)/hbar^2); 
     ki_arr(iEn) = ki;
-    % Identify Incident Channel
-        for i = 1: numopen
-            % can generalize this to be ML != 0 and just equal to the
-            % incident channel - equivalent but more general I think.. 
-            if QN_open(i,1) == Angular_QN_ULF(incident,1) && ...
-               QN_open(i,2) == Angular_QN_ULF(incident,2) && ... 
-               QN_open(i,3) == Angular_QN_ULF(incident,3) &&... 
-               QN_open(i,4) == ML_incident % previously I set this to 0
-                %QN_open(i,4) == Angular_QN_ULF(incident,4)
-                %           QN_open(i,3) == Angular_QN_ULF(incident,3) && ... 
-               is = i; 
-               elasticIndex = i; 
-            end 
-       
+    
+    % Identify indident channel
+    is = []; 
+    for i = 1:numopen
+        % Remember: QN_open columns are [m1, m2, 2*L, ML]
+        if QN_open(i,1) == m1_incident && ...
+           QN_open(i,2) == m2_incident && ... 
+           QN_open(i,3) == L_incident && ... 
+           QN_open(i,4) == ML_incident
+           
+           is = i; 
+           break; % exit loop
         end 
+    end 
+    
 
-            for f = 1:numopen
-                S_if = Smat(is, f);
-                
-                % Check if this outgoing channel is Elastic - current spins
-                % are the same as the incoming spins 
-
-                is_elastic_channel = (QN_open(f,1) == m1_incident && ...
-                                      QN_open(f,2) == m2_incident);
-                Lnumerics = QN_open(f,3); % changed from i
-                Lphysical = Lnumerics/2; 
-                if is_elastic_channel
-                    % i think this should be 1 regardless... 
-                    delta_if = (is == f); % Kronecker delta: 1 if i==f, 0 otherwise
-                    %T_matrix_element = delta_if - S_if;
-                    T_matrix_element = delta_if - S_if;
-                    
-                    g_factor = 1; % 2 for same state which is what we get for elastic?
-                    % there are 2L+1 m states for a given L state? 
-                    % perhaps look into fixing the 2L+1 factor here later
-                    %partial_sigma = (g_factor * pi / ki^2) * (2*Lphysical + 1) * abs(T_matrix_element)^2;
-                    
-
-                    %%%%% see if this change works!
-
-                    partial_sigma = (g_factor * pi / ki^2) * abs(T_matrix_element)^2;
-
-
-                    sigma_total_elastic(iEn) = sigma_total_elastic(iEn) + partial_sigma;
-                    Lmatindex = round(Lphysical)/2 + 1; 
-                    if Lmatindex <= maxLstorage
-                        partial_sigma_arr(iEn, Lmatindex) = partial_sigma_arr(iEn, Lmatindex) + partial_sigma; 
-                        T_matrix_2(iEn, Lmatindex) = T_matrix_element; 
-                    end 
-                    
-                    % Capture the S-wave phase shift for plotting
-                    % if (Lnumerics == 0) && (i == f)
-                    %     is = i; 
-                    %     % find the phase via the angle of the scattering
-                    %     % matrix 
-                    %     phase(iEn) = 0.5 * angle(S_if); 
-                    % end
-                end 
-            end 
-         
-    % for j = 1:numopen 
-    % 
-    %     Sii = Smat(is,is);
-    %     phase(iEn) = 0.5*angle(Sii); 
-    %     Lnumerics = QN_open(i,3); 
-    %     Lphysical = Lnumerics/2; 
-    %     if j == is
-    %         g = 2; 
-    %         g = 1; 
-    %         partial_sigma = (2*Lphysical + 1) * g_factor * pi * abs(1 - Sii)^2 / ki^2;
-    %         crosssection = g*pi*abs(1 - Sii)^2/ki^2;
-    %         crosssection_arr(iEn) = crosssection; 
-    %         fullcrosssection = fullcrosssection + partial_sigma; 
-    %         Kmat_channels(iEn) = hbar*ki * crosssection/mass;
-    %     elseif any(j == itarget)
-    %         % Spin Exchange
-    %         g = 1;
-    %         Sij = Smat(is, j); 
-    %         crosssection_ex = crosssection_ex + g*pi*abs(Sij)^2/ki^2;
-    %     elseif j < is
-    %         % Spin Relaxation 
-    %         g = 1; 
-    %         Sij = Smat(is, j); 
-    %         inelastic_sum = inelastic_sum + g*pi*abs(Sij)^2/ki^2; 
-    %     end 
+    % if isempty(is)
+    %     continue; 
     % end
-    % 
-    % Kmat_channels_inelastic(iBF) = hbar*ki*inelastic_sum/mass;
-    % Kmat_exchange(iBF) = hbar*ki*crosssection_ex/mass;
-    % 
-    % 
-    % ratio_arr_B(iBF) = Kmat_channels_inelastic(iBF)/Kmat_exchange(iBF);
-    Kmat_channels(iEn) = hbar*ki * sigma_total_elastic(iEn)/mass;
+
+    % Loop over all Open Outgoing Channels to find RELAXATION
+    for f = 1:numopen
+        m1_f = QN_open(f,1);
+        m2_f = QN_open(f,2);
+        Lnumerics = QN_open(f,3); 
+        Lphysical = Lnumerics / 2; 
+        
+        % RELAXATION CHECK: Are the final spins a lower energy state?
+        if (m1_f + m2_f) < (m1_incident + m2_incident)
+
+            S_if = Smat(is, f);
+            
+            % For inelastic scattering (i ~= f), T = -S. 
+            % Therefore |T|^2 is just |S|^2.
+            T_sq = abs(S_if).^2;
+            
+            Lmatindex = round(Lphysical/2) + 1; 
+            
+            if Lmatindex <= maxLstorage
+                T_matrix_relaxation_numeric(iEn, Lmatindex) = ...
+                    T_matrix_relaxation_numeric(iEn, Lmatindex) + T_sq;
+            end
+            
+        end 
+    end
+
 end
 %% 
 sigma_total_elastic_scaled = (sigma_total_elastic/(max(max(C3mat))*mass)^2); 
@@ -324,7 +309,8 @@ function [Smat, Kmat, QN_open, thresholds_open ] ...
             % --- ADAPTIVE STEP SIZE FOR DIPOLE ---
             % Since C12=0 and C6=0, we use C3 to estimate curvature
             V_local_est = -C3_max / r^3; 
-            
+
+            E_kin_max = energy - min(thresholds);
             % If potential is very deep (negative), kinetic energy is high -> small steps
             % local_E_kin = energy - V_local_est
             
@@ -332,18 +318,11 @@ function [Smat, Kmat, QN_open, thresholds_open ] ...
                 % Tunneling region or error
                 % Maintain previous dr or set small default
             else   
-                lambda = 1/sqrt(2*mass*(energy - V_local_est));
+                %lambda = 1/sqrt(2*mass*(energy - V_local_est)); % orig....
+                lambda = 1/sqrt(2*mass*(E_kin_max - V_local_est));
                 dr = lambda/scale;
+                dr = min(dr, 0.5); % new!
 
-                % %%%% Try this: 
-                % dr_lambda = lambda/scale;
-                % dr_max_phys = 500.0; 
-                % 
-                % dr_max_geom = 0.1 * r; 
-                % 
-                % dr = min([dr_lambda, dr_max_phys, dr_max_geom]);
-                % %%%% end of trying to adjust the scale... maybe delete
-                % %%%% later
             end
         end
         

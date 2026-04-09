@@ -1,0 +1,132 @@
+clear all 
+%%%%TODO: Compare the numerics for the elastic numerics for different
+%%%%incident channels... what should the prefactor be in front?? 
+tic; 
+units 
+load_Er2
+%setup_dipoleanalysis
+setup_mod
+
+reducedmatrix = sqrt(2*jatom*(2*jatom+1)*(2*2*jatom+1)); 
+
+muB; 
+gfactor = 1.1638;   % from Ferlaino group
+rstart = 10.0;
+dr = 0.001;
+%rgo = 1000.0; % for testing
+rgo = 10000.0;
+r = logspace(log10(rstart), log10(rgo), 5000)'; 
+%r = 10; % set this for now and make more general later 
+
+% Spin parameters 
+jatom = 6;
+j1 = 2*jatom; 
+j2 = 2*jatom; 
+Lmin = 0;
+Lmax = 32; % previously 16 to see resonances
+%Lmax = 16; 
+m1_incident = -10;
+m2_incident = -10; 
+% set for inelastic, now lets set for spin relaxation - to -5,-5
+m1_final = -10; 
+m2_final = -6; 
+m1_final = -10; 
+m2_final = -10; 
+
+
+
+L_incident = 0; 
+
+ML_incident = 0;
+Mtot = m1_incident + m2_incident + ML_incident;
+
+L_final = L_incident; 
+ML_final = Mtot - m1_final - m2_final; % this accounts for spin relaxation
+
+
+prefactor = reducedmatrix^2*(-sqrt(30));
+energies = logspace(-16,-10,10); 
+BField = 1.0/b0; 
+maxLstorage = 11; 
+T_matrix_exchange_L = zeros(length(energies), maxLstorage); 
+dipole_conversion = 2*mass * max(max(C3mat(:))) / hbar^2;
+%dipole_conversion = 2*mass/hbar^2; 
+for iEn = 1:length(energies)
+    energy = energies(iEn);
+    ki = sqrt(2*mass*energy/hbar^2); % Incident wavenumber
+    
+    T_sq_exchange_total(iEn) = 0;
+            
+    m1_f = m1_final;
+    m2_f = m2_final; 
+   
+
+
+    kf = ki; % same ingoing and outgoing wavenumber for spinex
+
+    % calculate these for 3-j symbols 
+    q1 = m1_f - m1_incident;
+    q2 = m2_f - m2_incident;
+    q_tot = q1 + q2;
+    
+    thrj1 = thrj(j1, 4, j1, -m1_f, q1, m1_incident); % k=2 for dipole
+    thrj2 = thrj(j2, 4, j2, -m2_f, q2, m2_incident);
+    thrj_combined = thrj(2, 2, 4, q1, q2, -q_tot); % Double indices 
+    
+    % Angular prefactor A
+    A_spin = prefactor * (-1)^(j1-m1_incident + j2-m2_incident) * ...
+             thrj1 * thrj2 * thrj_combined;
+
+    % loop over even partial waves 
+    %for lp = 0:4:Lmax 
+        % C = Angular integral of spherical harmonics
+    lp = 4;     
+    C = ang_integral(L_incident, lp, ML_incident, Mtot - m1_f - m2_f);
+    %disp("L: " + lp + ", C: " + C)
+    if C == 0, continue; end
+    
+    % Ra = Radial integral
+
+    %Ra = rad_integral(L_incident/2, lp/2, ki*dipole_conversion, kf*dipole_conversion);
+    Ra = radIntegral2(L_incident/2, lp/2); 
+    %A_spin = 1; % maybe this factor is actually not 1? 
+    T_mat_element = dipole_conversion*A_spin * ki*C * Ra;
+    
+    % Accumulate the T-matrix squared for 
+    T_sq = abs(T_mat_element)^2;
+    % total T-matrix with all contributions 
+    T_sq_exchange_total(iEn) = T_sq_exchange_total(iEn) + T_sq;
+
+    
+    % Store individual partial T-matricies 
+    Lmatindex = round(lp/4) + 1;
+    if Lmatindex <= maxLstorage
+        T_matrix_exchange_L(iEn, Lmatindex) = ...
+            T_matrix_exchange_L(iEn, Lmatindex) + T_sq;
+        T_matrix_exchange_L(iEn, Lmatindex) = T_sq;
+    end
+    %end
+
+end
+
+function angIntegral = ang_integral(li, lf, mi, mf) 
+% thrj(j1d,j2d,j3d,m1d,m2d,m3d)
+
+q = mi-mf; 
+angIntegral = sqrt((li+1)*(lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
+end 
+
+% function radIntegral = rad_integral(li, lf, ki, kf)
+% 
+% radIntegral = c* ki^(li+1/2)*gamma((li+lf)/2)/...
+%     (4*kf^(li-1/2)*gamma((-li+lf+3)/2)*gamma(li+3/2))...
+%     * hypergeom( [(li+lf)/2, (li-lf-1)/2], li+3/2, (ki/kf)^2);
+% 
+% end 
+
+function radialComponent = radIntegral2(l, lp)
+
+numerator = pi*gamma((l+lp)/2);
+denominator = gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
+radialComponent = numerator/denominator; 
+end 

@@ -33,7 +33,7 @@ m2_final_vals = [-8, -10, -12];
 
 L_incident = 8; % changing this from 0 from spin exchange 
 L_incident = 0; 
-%L_incident = 4; 
+L_incident = 4; 
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
 
@@ -94,11 +94,11 @@ for iEn = 1:length(energies)
                 %
 % ki = ki * dipole_conversion; 
 % kf = kf * dipole_conversion; 
-                Ra = rad_integral(L_incident/2, lp/2, ki*dipole_conversion, kf*dipole_conversion);
+                Ra = rad_integral(L_incident/2, lp/2, ki, kf);
                 
                 % The T-matrix element in Born Approximation
                 % T = A_spin * C * Ra
-                T_mat_element = A_spin * C * Ra;
+                T_mat_element = 4*pi*dipole_conversion*A_spin * C * Ra;
                 
                 % Accumulate the T-matrix squared for 
                 T_sq = abs(T_mat_element)^2;
@@ -118,12 +118,6 @@ end
 
 function angIntegral = ang_integral(li, lf, mi, mf) 
 % thrj(j1d,j2d,j3d,m1d,m2d,m3d)
-% remember to double all quantum numbers - li, lf are input already doubled
-% 2*(2*2)+1 = 9
-% take m1 = total incoming m
-% take m2 = total outgoing m
-% q is the difference between total incoming m and total outgoing m to
-% determine how much spin is transferred into the total rotation
 q = mi-mf; 
 angIntegral = sqrt(5*(li+1)*(lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
 end 
@@ -131,7 +125,7 @@ end
 function radIntegral = rad_integral(li, lf, ki, kf)
 % let's try multiplying all ki by the dipole conversion factor 
 
-radIntegral = ki^(li+1/2)*gamma((li+lf)/2)/...
+radIntegral = (pi/2)*(1/sqrt(ki*kf))*ki^(li+1/2)*gamma((li+lf)/2)/...
     (4*kf^(li-1/2)*gamma((-li+lf+3)/2)*gamma(li+3/2))...
     * hypergeom( [(li+lf)/2, (li-lf-1)/2], li+3/2, (ki/kf)^2);
 

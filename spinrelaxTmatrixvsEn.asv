@@ -1,0 +1,10 @@
+% numerics = load("TmartrixvEnergies_sr.mat");
+% figure; 
+% loglog(energies, T_matrix_relaxation_L(:,2)); 
+% hold on; 
+% loglog(numerical_result.energies, nu.T_matrix_relaxation_numeric(:,2))
+
+figure; 
+loglog(energies(1:4), T_matrix_relaxation_numeric(1:4,2:5));
+% hold on; 
+% loglog(energies(1:4), sqrt(energies(1:4)))
