@@ -21,7 +21,7 @@ C620 = 0;
 rstart = 4.0;  
 %rstart = 100; % try something drastic to see if that changes things 
 dr = 0.001;
-rgo = 500000.0;
+rgo = 1000000.0;
 %rgo = 1000000.0;
 %rgo = 50000; 
 Fixed_Step_Size = false;
@@ -48,12 +48,12 @@ Lmatindex = 1;
 
 Lmin = 0;
 Lmax = 16; % changed from L = 32 on 4/12
-m1_incident = -8;
-m2_incident = -8; 
-m1_final_target = -10; 
-m2_final_target = -6; 
+m1_incident = -10;
+m2_incident = -10; 
+m1_final_target = -12; 
+m2_final_target = -8; 
 
-L_incident = 0;
+L_incident = 4;
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
 
@@ -79,7 +79,7 @@ if isempty(incident_index)
 end
 
 % Extract the internal energy of the incoming atoms
-E_threshold_incident = thresholds(incident_index)
+E_threshold_incident = thresholds(incident_index);
 
 for iEn = 1:length(energies)
 
@@ -115,48 +115,48 @@ for iEn = 1:length(energies)
         end 
     end 
 
-   for ii = 1:numopen
-        % Remember: QN_open columns are [m1, m2, 2*L, ML]
-        if QN_open(ii,1) == m1_final_target && ...
-           QN_open(ii,2) == m2_final_target && ... 
-           QN_open(ii,3) == 4 && ... 
-           QN_open(ii,4) == ML_incident
-           
-           ifinal = ii; 
-           break; % exit loop
+   % for ii = 1:numopen
+   %      % Remember: QN_open columns are [m1, m2, 2*L, ML]
+   %      if QN_open(ii,1) == m1_final_target && ...
+   %         QN_open(ii,2) == m2_final_target && ... 
+   %         QN_open(ii,3) == 4 && ... 
+   %         QN_open(ii,4) == ML_incident
+   % 
+   %         ifinal = ii; 
+   %         break; % exit loop
+   %      end 
+   %  end
+    
+    for f = 1:numopen
+        m1_f = QN_open(f,1);
+        m2_f = QN_open(f,2);
+        Lnumerics = QN_open(f,3); 
+        Lphysical = Lnumerics / 2; 
+
+        % target a specific transition
+        if m1_final_target == m1_f && m2_final_target == m2_f 
+
+            S_if = Smat(is, f);
+
+            % For inelastic scattering (i ~= f), T = -S. 
+            % Therefore |T|^2 is just |S|^2.
+            T_sq = abs(S_if).^2;
+
+            Lmatindex = round(Lphysical/2) + 1; 
+
+            if Lmatindex <= maxLstorage
+                T_matrix_exchange_numeric(iEn, Lmatindex) = ...
+                    T_matrix_exchange_numeric(iEn, Lmatindex) + T_sq;
+            end
+
         end 
     end
-    
-    % for f = 1:numopen
-    %     m1_f = QN_open(f,1);
-    %     m2_f = QN_open(f,2);
-    %     Lnumerics = QN_open(f,3); 
-    %     Lphysical = Lnumerics / 2; 
-    % 
-    %     % target a specific transition
-    %     if m1_final_target == m1_f && m2_final_target == m2_f 
-    % 
-    %         S_if = Smat(is, f);
-    % 
-    %         % For inelastic scattering (i ~= f), T = -S. 
-    %         % Therefore |T|^2 is just |S|^2.
-    %         T_sq = abs(S_if).^2;
-    % 
-    %         Lmatindex = round(Lphysical/2) + 1; 
-    % 
-    %         if Lmatindex <= maxLstorage
-    %             T_matrix_exchange_numeric(iEn, Lmatindex) = ...
-    %                 T_matrix_exchange_numeric(iEn, Lmatindex) + T_sq;
-    %         end
-    % 
-    %     end 
-    % end
     %%%
-    S_if = Smat(is, ifinal);
-    T_sq = abs(S_if).^2;
-    Lphysical = 2; 
-    Lmatindex = round(Lphysical/2) + 1;
-    T_matrix_exchange_numeric(iEn, Lmatindex) = T_sq; 
+    % S_if = Smat(is, ifinal);
+    % T_sq = abs(S_if).^2;
+    % Lphysical = 2; 
+    % Lmatindex = round(Lphysical/2) + 1;
+    % T_matrix_exchange_numeric(iEn, Lmatindex) = T_sq; 
 
 end
 

@@ -1,7 +1,4 @@
-% now we want to compare individual transitions (instead of just the sum
-% over all transitions to see if there is a specific spot that the
-% algorithm is going wrong
-
+% most recent spin exchange numerics: dipole only (4/14) 
 clear all 
 load_Er2
 % folderName = 'curveanalysis_onlydipole2'; 
@@ -21,7 +18,7 @@ C620 = 0;
 rstart = 4.0;  
 %rstart = 100; % try something drastic to see if that changes things 
 dr = 0.001;
-rgo = 500000.0;
+rgo = 1000000.0;
 %rgo = 1000000.0;
 %rgo = 50000; 
 Fixed_Step_Size = false;
@@ -39,7 +36,7 @@ C8mat(:) = 0;
 % Define Initial Boundary Condition (Infinite Hard Wall at rstart)
 ymat_initial = 1.e20*eye(numfun,numfun);
 BField = 1.0/b0; 
-energies = logspace(-16,-10,10); 
+energies = logspace(-16,-12,10); 
 thresholds = diag(HBmat)*BField;
 maxLstorage = 11; 
 partial_sigma_arr = zeros(length(energies), maxLstorage); 
@@ -53,12 +50,13 @@ m2_incident = -8;
 m1_final_target = -10; 
 m2_final_target = -6; 
 
-L_incident = 0;
+L_incident = 4;
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
 
 
 BField = 1.0/b0; 
+%BField = 15.495/b0; 
 maxLstorage = 11; 
 T_matrix_exchange_numeric = zeros(length(energies), maxLstorage); 
 
@@ -79,10 +77,10 @@ if isempty(incident_index)
 end
 
 % Extract the internal energy of the incoming atoms
-E_threshold_incident = thresholds(incident_index)
+E_threshold_incident = thresholds(incident_index);
 
 for iEn = 1:length(energies)
-
+    fprintf('Calculating energy %d of %d...\n', iEn, length(energies));
     sigma_total_elastic(iEn) = 0 ; 
     energy = energies(iEn); 
     [Smat, Kmat, QN_open, thresholds_open] ...
@@ -115,51 +113,52 @@ for iEn = 1:length(energies)
         end 
     end 
 
-   for ii = 1:numopen
-        % Remember: QN_open columns are [m1, m2, 2*L, ML]
-        if QN_open(ii,1) == m1_final_target && ...
-           QN_open(ii,2) == m2_final_target && ... 
-           QN_open(ii,3) == 4 && ... 
-           QN_open(ii,4) == ML_incident
-           
-           ifinal = ii; 
-           break; % exit loop
+   % for ii = 1:numopen
+   %      % Remember: QN_open columns are [m1, m2, 2*L, ML]
+   %      if QN_open(ii,1) == m1_final_target && ...
+   %         QN_open(ii,2) == m2_final_target && ... 
+   %         QN_open(ii,3) == 4 && ... 
+   %         QN_open(ii,4) == ML_incident
+   % 
+   %         ifinal = ii; 
+   %         break; % exit loop
+   %      end 
+   %  end
+    
+    for f = 1:numopen
+        m1_f = QN_open(f,1);
+        m2_f = QN_open(f,2);
+        Lnumerics = QN_open(f,3); 
+        Lphysical = Lnumerics / 2; 
+
+        % target a specific transition
+        if m1_final_target == m1_f && m2_final_target == m2_f 
+
+            S_if = Smat(is, f);
+
+            % For inelastic scattering (i ~= f), T = -S. 
+            % Therefore |T|^2 is just |S|^2.
+            T_sq = abs(S_if).^2;
+
+            Lmatindex = round(Lphysical/2) + 1; 
+
+            if Lmatindex <= maxLstorage
+                T_matrix_exchange_numeric(iEn, Lmatindex) = ...
+                    T_matrix_exchange_numeric(iEn, Lmatindex) + T_sq;
+            end
+
         end 
     end
-    
-    % for f = 1:numopen
-    %     m1_f = QN_open(f,1);
-    %     m2_f = QN_open(f,2);
-    %     Lnumerics = QN_open(f,3); 
-    %     Lphysical = Lnumerics / 2; 
-    % 
-    %     % target a specific transition
-    %     if m1_final_target == m1_f && m2_final_target == m2_f 
-    % 
-    %         S_if = Smat(is, f);
-    % 
-    %         % For inelastic scattering (i ~= f), T = -S. 
-    %         % Therefore |T|^2 is just |S|^2.
-    %         T_sq = abs(S_if).^2;
-    % 
-    %         Lmatindex = round(Lphysical/2) + 1; 
-    % 
-    %         if Lmatindex <= maxLstorage
-    %             T_matrix_exchange_numeric(iEn, Lmatindex) = ...
-    %                 T_matrix_exchange_numeric(iEn, Lmatindex) + T_sq;
-    %         end
-    % 
-    %     end 
-    % end
     %%%
-    S_if = Smat(is, ifinal);
-    T_sq = abs(S_if).^2;
-    Lphysical = 2; 
-    Lmatindex = round(Lphysical/2) + 1;
-    T_matrix_exchange_numeric(iEn, Lmatindex) = T_sq; 
+    % S_if = Smat(is, ifinal);
+    % T_sq = abs(S_if).^2;
+    % Lphysical = 2; 
+    % Lmatindex = round(Lphysical/2) + 1;
+    % T_matrix_exchange_numeric(iEn, Lmatindex) = T_sq; 
 
 end
-
+t = toc;
+disp("Time to complete: " + t + " s")
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -194,8 +193,7 @@ function [Smat, Kmat, QN_open, thresholds_open ] ...
             % --- ADAPTIVE STEP SIZE FOR DIPOLE ---
             % Since C12=0 and C6=0, we use C3 to estimate curvature
             V_local_est = -C3_max / r^3; 
-
-            E_kin_max = energy - min(thresholds);
+            
             % If potential is very deep (negative), kinetic energy is high -> small steps
             % local_E_kin = energy - V_local_est
             
@@ -203,11 +201,18 @@ function [Smat, Kmat, QN_open, thresholds_open ] ...
                 % Tunneling region or error
                 % Maintain previous dr or set small default
             else   
-                %lambda = 1/sqrt(2*mass*(energy - V_local_est)); % orig....
-                lambda = 1/sqrt(2*mass*(E_kin_max - V_local_est));
+                lambda = 1/sqrt(2*mass*(energy - V_local_est));
                 dr = lambda/scale;
-                dr = min(dr, 0.5); % new!
 
+                % %%%% Try this: 
+                % dr_lambda = lambda/scale;
+                % dr_max_phys = 500.0; 
+                % 
+                % dr_max_geom = 0.1 * r; 
+                % 
+                % dr = min([dr_lambda, dr_max_phys, dr_max_geom]);
+                % %%%% end of trying to adjust the scale... maybe delete
+                % %%%% later
             end
         end
         

@@ -1,7 +1,4 @@
-% now we want to compare individual transitions (instead of just the sum
-% over all transitions to see if there is a specific spot that the
-% algorithm is going wrong
-
+% TODO: plot 
 clear all 
 load_Er2
 % folderName = 'curveanalysis_onlydipole2'; 
@@ -11,9 +8,9 @@ tic;
 
 % parameters 
 MeanDe = 30.0; 
-C6 = 0; 
-C12 = 0;
-C620 = 0;
+% C6 = 0; 
+% C12 = 0;
+% C620 = 0;
 
 
 
@@ -21,7 +18,7 @@ C620 = 0;
 rstart = 4.0;  
 %rstart = 100; % try something drastic to see if that changes things 
 dr = 0.001;
-rgo = 500000.0;
+rgo = 1000000.0;
 %rgo = 1000000.0;
 %rgo = 50000; 
 Fixed_Step_Size = false;
@@ -31,15 +28,15 @@ SRcoef = zeros(j1+j2+1, j1+j2+1);
 setup_mod; 
 
 
-C6mat(:) = 0;   
-C12mat(:) = 0;  
+% C6mat(:) = 0;   
+% C12mat(:) = 0;  
 C8mat(:) = 0;   
 % C3mat is preserved for dipole
 
 % Define Initial Boundary Condition (Infinite Hard Wall at rstart)
 ymat_initial = 1.e20*eye(numfun,numfun);
 BField = 1.0/b0; 
-energies = logspace(-16,-10,10); 
+energies = logspace(-16,-12,10); 
 thresholds = diag(HBmat)*BField;
 maxLstorage = 11; 
 partial_sigma_arr = zeros(length(energies), maxLstorage); 
@@ -53,12 +50,12 @@ m2_incident = -8;
 m1_final_target = -10; 
 m2_final_target = -6; 
 
-L_incident = 0;
+L_incident = 4;
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
 
 
-BField = 1.0/b0; 
+BField = 12.03/b0; 
 maxLstorage = 11; 
 T_matrix_exchange_numeric = zeros(length(energies), maxLstorage); 
 
@@ -79,10 +76,10 @@ if isempty(incident_index)
 end
 
 % Extract the internal energy of the incoming atoms
-E_threshold_incident = thresholds(incident_index)
+E_threshold_incident = thresholds(incident_index);
 
 for iEn = 1:length(energies)
-
+    fprintf('Calculating energy %d of %d...\n', iEn, length(energies));
     sigma_total_elastic(iEn) = 0 ; 
     energy = energies(iEn); 
     [Smat, Kmat, QN_open, thresholds_open] ...
@@ -115,51 +112,52 @@ for iEn = 1:length(energies)
         end 
     end 
 
-   for ii = 1:numopen
-        % Remember: QN_open columns are [m1, m2, 2*L, ML]
-        if QN_open(ii,1) == m1_final_target && ...
-           QN_open(ii,2) == m2_final_target && ... 
-           QN_open(ii,3) == 4 && ... 
-           QN_open(ii,4) == ML_incident
-           
-           ifinal = ii; 
-           break; % exit loop
+   % for ii = 1:numopen
+   %      % Remember: QN_open columns are [m1, m2, 2*L, ML]
+   %      if QN_open(ii,1) == m1_final_target && ...
+   %         QN_open(ii,2) == m2_final_target && ... 
+   %         QN_open(ii,3) == 4 && ... 
+   %         QN_open(ii,4) == ML_incident
+   % 
+   %         ifinal = ii; 
+   %         break; % exit loop
+   %      end 
+   %  end
+    
+    for f = 1:numopen
+        m1_f = QN_open(f,1);
+        m2_f = QN_open(f,2);
+        Lnumerics = QN_open(f,3); 
+        Lphysical = Lnumerics / 2; 
+
+        % target a specific transition
+        if m1_final_target == m1_f && m2_final_target == m2_f 
+
+            S_if = Smat(is, f);
+
+            % For inelastic scattering (i ~= f), T = -S. 
+            % Therefore |T|^2 is just |S|^2.
+            T_sq = abs(S_if).^2;
+
+            Lmatindex = round(Lphysical/2) + 1; 
+
+            if Lmatindex <= maxLstorage
+                T_matrix_exchange_numeric(iEn, Lmatindex) = ...
+                    T_matrix_exchange_numeric(iEn, Lmatindex) + T_sq;
+            end
+
         end 
     end
-    
-    % for f = 1:numopen
-    %     m1_f = QN_open(f,1);
-    %     m2_f = QN_open(f,2);
-    %     Lnumerics = QN_open(f,3); 
-    %     Lphysical = Lnumerics / 2; 
-    % 
-    %     % target a specific transition
-    %     if m1_final_target == m1_f && m2_final_target == m2_f 
-    % 
-    %         S_if = Smat(is, f);
-    % 
-    %         % For inelastic scattering (i ~= f), T = -S. 
-    %         % Therefore |T|^2 is just |S|^2.
-    %         T_sq = abs(S_if).^2;
-    % 
-    %         Lmatindex = round(Lphysical/2) + 1; 
-    % 
-    %         if Lmatindex <= maxLstorage
-    %             T_matrix_exchange_numeric(iEn, Lmatindex) = ...
-    %                 T_matrix_exchange_numeric(iEn, Lmatindex) + T_sq;
-    %         end
-    % 
-    %     end 
-    % end
     %%%
-    S_if = Smat(is, ifinal);
-    T_sq = abs(S_if).^2;
-    Lphysical = 2; 
-    Lmatindex = round(Lphysical/2) + 1;
-    T_matrix_exchange_numeric(iEn, Lmatindex) = T_sq; 
+    % S_if = Smat(is, ifinal);
+    % T_sq = abs(S_if).^2;
+    % Lphysical = 2; 
+    % Lmatindex = round(Lphysical/2) + 1;
+    % T_matrix_exchange_numeric(iEn, Lmatindex) = T_sq; 
 
 end
-
+t = toc;
+disp("Time to complete: " + t + " s")
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -176,92 +174,99 @@ function [Smat, Kmat, QN_open, thresholds_open ] ...
                                 rstart, dr, rgo, ...
                                 Fixed_Step_Size, scale, ...
                                 ymat_initial)
+% the scattering problem, deliver Smat and Kmat for a given energy
+%   needs the parameters that handle the propagation:
+%                 rstart, dr, rgo, Ymat_initial
+%                 Fixed_Step_Size, scale
+%   and the parameters needed for matching:
+%                  (partial waves in each channel), 
+%                 thresholds
+%  return the quantum nubmers and threholds 
+%        of the open channels
 
-    % Local potential handles full matrix logic
-    potlocal = @(r) potmat(BField, r, TKmat, C12mat, C8mat, C6mat, C3mat, HBmat );
-    
-    numfun = length(thresholds);
-    Ymat = ymat_initial;
-    r = rstart;
-    
-    % Estimate max dipole strength for step size calculation
-    C3_max = max(max(abs(C3mat))); 
+potlocal = @(r) ...  %  for use within this calculation
+    potmat(BField, r, ...
+           TKmat, C12mat, C8mat, ...
+           C6mat, C3mat, HBmat );
 
-    while r < rgo
-        if Fixed_Step_Size == true
-             % do nothing
-        else     
-            % --- ADAPTIVE STEP SIZE FOR DIPOLE ---
-            % Since C12=0 and C6=0, we use C3 to estimate curvature
-            V_local_est = -C3_max / r^3; 
-
-            E_kin_max = energy - min(thresholds);
-            % If potential is very deep (negative), kinetic energy is high -> small steps
-            % local_E_kin = energy - V_local_est
-            
-            if (energy - V_local_est) <= 0
-                % Tunneling region or error
-                % Maintain previous dr or set small default
-            else   
-                %lambda = 1/sqrt(2*mass*(energy - V_local_est)); % orig....
-                lambda = 1/sqrt(2*mass*(E_kin_max - V_local_est));
-                dr = lambda/scale;
-                dr = min(dr, 0.5); % new!
-
-            end
-        end
-        
-        % Propagate
-        Ymat = logstep(energy, mass, r, dr, Ymat, BField, ...
-                       TKmat, C12mat, C8mat, C6mat, C3mat, HBmat);
-        r = r + dr;
-    end
-    rmatch = r;
-
-    % Match to Open Channels
-    iopen= 0;
-    thresholds_open = []; QN_open = []; L_actual_open = []; Ymatopen = [];
-    
-    for i = 1 : numfun
-        if energy - thresholds(i) > 0
-            iopen = iopen + 1;
-            thresholds_open(iopen) = thresholds(i);
-            QN_open(iopen,1:4) = Angular_QN_ULF(i,1:4);
-            L_actual_open(iopen) = QN_open(iopen,3)/2;
-            iopenp = 0;
-            for ip = 1 : numfun
-                if energy - thresholds(ip) > 0
-                    iopenp = iopenp + 1;
-                    Ymatopen(iopen,iopenp) = Ymat(i,ip);
-                end
-            end
+%  compute Y-matrix
+numfun = length(thresholds);
+Ymat = ymat_initial;
+r = rstart;
+while r < rgo
+    if Fixed_Step_Size == true
+             % nothing; leave with the one you came with
+    else     
+        %Vtemp = potlocal(r);
+        %V_local = eigs(Vtemp,1,'smallestreal'); 
+        V_local = MeanC12/r^12 - C6/r^6; %%%% Look at this more closely - how is the potential curve being defined?????
+        if energy-V_local <= 0
+            %  nothing; de Broglie wavelength is imaginary
+        else   % dr is fraction of local deBroglie wavelength
+            lambda = 1/sqrt(2*mass*(energy-V_local));
+            dr = lambda/scale;
         end
     end
-    
-    numop = iopen;
-    if numop == 0
-        % If no channels open, return empty
-        Smat = []; Kmat = []; return;
+    Ymat1 = logstep(energy, mass, ...
+                   r,dr,Ymat, ...
+                   BField, ...
+                   TKmat, C12mat, C8mat, ...
+                   C6mat, C3mat, HBmat);
+    Ymat = Ymat1;
+    clear Ymat1
+    r = r + dr;
+end
+rmatch = r;
+%Ymat
+
+%  find the open channels, keep Ymat only in those channels
+iopen= 0;
+for i = 1 : numfun
+    if energy - thresholds(i) > 0
+        iopen = iopen + 1;
+        thresholds_open(iopen) = thresholds(i);
+        QN_open(iopen,1) = Angular_QN_ULF(i,1);
+        QN_open(iopen,2) = Angular_QN_ULF(i,2);
+        QN_open(iopen,3) = Angular_QN_ULF(i,3);
+        QN_open(iopen,4) = Angular_QN_ULF(i,4);
+        L_actual_open(iopen) = QN_open(iopen,3)/2;
+        iopenp = 0;
+        for ip = 1 : numfun
+            if energy - thresholds(ip) > 0
+                iopenp = iopenp + 1;
+                Ymatopen(iopen,iopenp) = Ymat(i,ip);
+            end
+        end
     end
-    
-    F = zeros(numop,numop); G = zeros(numop,numop);
-    Fp = zeros(numop,numop); Gp = zeros(numop,numop);
-    k = sqrt(2*mass*(energy-thresholds_open));
-    
-    for i = 1: numop
-        prefac = sqrt(2/k(i)/pi);  
-        x = k(i)*rmatch;
-        L = L_actual_open(i);
-        [sj, sy, sjp, syp] = spherical_Bessel(L,x);
-        F(i,i) = prefac * x * sj;
-        G(i,i) = prefac * x * sy;
-        Fp(i,i) = prefac * k(i)*(sj + x*sjp);
-        Gp(i,i) = prefac * k(i)*(sy + x*syp);
-    end
-    
-    % K-matrix extraction
-    Kmat = (F*Ymatopen - Fp)/(G*Ymatopen - Gp); 
-    Smat = (eye(numop,numop) + 1i*Kmat)/(eye(numop,numop) - 1i*Kmat);
+end
+numop = iopen;
+
+
+% generate matching functions and derivatives with respect to r
+% here normalized to
+%  f -> sin(kr-L*pi/2),   g -> -cos(kr-L*pi/2)
+F = zeros(numop,numop);
+G = zeros(numop,numop);
+Fp = zeros(numop,numop);
+Gp = zeros(numop,numop);
+
+k = sqrt(2*mass*(energy-thresholds_open));
+for i = 1: numop
+    prefac = sqrt(2/k(i)/pi);  %  for energy normalization ("for want of a nail...")
+    x = k(i)*rmatch;
+    L = L_actual_open(i);
+    [sj, sy, sjp, syp] = spherical_Bessel(L,x);
+    F(i,i) = prefac * x * sj;
+    G(i,i) = prefac * x * sy;
+    Fp(i,i) = prefac * k(i)*(sj + x*sjp);
+    Gp(i,i) = prefac * k(i)*(sy + x*syp);
+end
+
+
+Kmat = (F*Ymatopen - Fp)*inv(G*Ymatopen - Gp);
+Smat = (eye(numop,numop) + 1i*Kmat)/(eye(numop,numop) - 1i*Kmat);
+clear Ymat Ymatopen
+
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,0 +1,62 @@
+% compare Bessel function integral and the formula 
+
+% first the explicit integrals
+m1 = -10; 
+m2 = -10; 
+m1p = -12; 
+m2p = -12; 
+
+l = 0; 
+lp = 2; 
+
+energies = logspace(-16,-12, 10); 
+
+
+
+ki = sqrt(2*mass*energies./hbar^2);
+Eshift = gfactor * muB * BField * ((m1 + m2) - (m1p + m2p)) / 2;
+kp = sqrt(2*mass*(Eshift+energies))/hbar; 
+
+Rmax = 1e10;
+
+%besselIntegral = integral(@(R) TmatIntegral(R,l, lp, ki,kp) , 0, inf); 
+besselIntegral = integral(@(R) TmatIntegral(R,l,lp,ki,kp), 0, Rmax, 'ArrayValued', true);
+formulaIntegral = radIntegralFormula(l, lp, ki, kp); 
+function besselIntegrand = TmatIntegral(R, li, lf, ki, kf)
+    %besselIntegral = SphericalBesselJ(li+1/2, ki*R)*....
+        %SphericalBesselJ(lf+1/2, kf*R)/R^2; 
+
+    besselIntegrand = besselj(li, ki.*R).*besselj(lf,kf.*R)*2.*sqrt(ki.*kf)/(pi.*R); 
+end 
+
+function radComponent2 = radIntegralFormula2(li, lf, ki, kf)
+
+    % Define the parameters for the Hypergeometric function
+    a = 0.5 * (-2 - lf + li);
+    b = (lf + li) / 2;
+    c = 2 + li;
+    z = (ki^2) / (kf^2);
+
+    hyper_reg = double(hypergeom([a, b], c, z)) / gamma(c);
+
+    % Calculate the Numerator
+    num_term1 = (ki / kf)^li;
+    num_term2 = sqrt(kf * ki);
+    num_term3 = pi;
+    num_term4 = gamma((lf + li) / 2);
+    
+    numerator = num_term1 * num_term2 * num_term3 * num_term4 * hyper_reg;
+
+    % Calculate the Denominator
+    denominator = 16 * gamma(0.5 * (4 + lf - li));
+
+    % Final Integration Result
+    radComponent2 = numerator / denominator;
+end
+
+
+function radComponent = radIntegralFormula(l, lp, k, kp)
+numerator = k.^(l+1/2)*gamma((l+lp)/2)*hypergeom([(l+lp)/2, (l-lp-1)/2], l+3/2, (k/kp)^2); 
+denominator = 4*kp.^(l-1/2)*gamma((-l+lp+3)/2)*gamma(l+3/2);
+radComponent = numerator ./ denominator; 
+end

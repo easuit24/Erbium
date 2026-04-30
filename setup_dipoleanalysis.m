@@ -19,8 +19,8 @@ Basis = 'This time its the Uncoupled Lab Frame Basis';
 Lmin = 0;
 Lmax = 16; % previously 16 to see resonances: max 32 ( change back to 16 again sometime...)
 %Lmax = 16; 
-m1_incident = -8; %-12
-m2_incident = -8;  %-12
+m1_incident = -10; %-12
+m2_incident = -10;  %-12
 % m1_incident = -10; 
 % m2_incident = -10; 
 %L_incident = 4; % now focusing on L = 0 to L' = 2

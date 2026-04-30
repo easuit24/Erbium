@@ -4,19 +4,20 @@
 l = 2; 
 lp = 2; 
 m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
-mp = 0; 
+mp = 4; 
 % incident spins 
 m1 = -8;
 m2 = -8; 
 % outgoing spins 
-m1p = -10;
-m2p = -6; 
+m1p = -12;
+m2p = -10; 
 j_atom = 6; 
 
 energies = logspace(-16,-12, 10); 
 
 dipole_conversion = 2 * mass * (gfactor * muB)^2 / hbar^2;
-ki_arr = sqrt(2*mass*energies./hbar^2)*dipole_conversion;
+ki_arr = sqrt(2*mass*energies./hbar^2);
+%ki_arr = sqrt(2*mass*energies./hbar^2)*dipole_conversion; % maybe remove dipole_conversion for relax
 reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
 q1 = m1p - m1; 
 q2 = m2p - m2; 
@@ -24,19 +25,40 @@ coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,q1,q2,-q1-q2)*thrj(2*j_atom, 2, 2*j_a
 % ML_incident, Mtot - m1_f - m2_f
 C = cll(l, lp, m/2, mp/2); 
 renorm = sqrt(2); % since two possible states 
-T_mat_ex = -2*ki_arr.*renorm*coef*C*radIntegral(l,lp); 
+%T_mat_ex = -2*ki_arr.*renorm*coef*C*radIntegral(l,lp); 
 
 
 C02 = cll(0, 2, m/2, mp/2); 
 C22 = cll(2, 2, m/2, mp/2); 
 C24 = cll(2, 4, m/2, mp/2); 
-T_mat_ex02 = -2*ki_arr.*renorm*coef*C02*radIntegral(0,2); 
-T_mat_ex22 = -2*ki_arr.*renorm*coef*C22*radIntegral(2,2); 
-T_mat_ex24 = -2*ki_arr.*renorm*coef*C24*radIntegral(2,4); 
-nonRadComponent_ex = -2*ki_arr.*renorm*coef*C02; 
+renorm = sqrt(2); 
+%BField = 1e-5/b0; 
+Eshift = gfactor * muB * BField * ((m1 + m2) - (m1p + m2p)) / 2;
+nonRadComponent = -2*ki_arr.*renorm*coef*C02; 
+nonRadComponent22 = -2*ki_arr.*renorm*coef*C22; 
+nonRadComponent24 = -2*ki_arr.*renorm*coef*C24; 
+for iEn = 1:length(energies)
+    kp = sqrt(2*mass*(Eshift+energies(iEn)))/hbar; 
+    kp_arr(iEn) = sqrt(2*mass*(Eshift+energies(iEn)))/hbar; 
+    %radComponent = radIntegral(l, lp, ki_arr(iEn), kp); 
+    ra22(iEn) = radIntegral(2, 2, ki_arr(iEn), kp); 
+    ra24(iEn) = radIntegral(2, 4, ki_arr(iEn), kp); 
 
-rad22 = radIntegral(2,2);
-rad24 = radIntegral(2,4); 
+    ra22_2(iEn) = radIntegral2(2, 2); 
+    ra24_2(iEn) = radIntegral2(2, 4); 
+    %T_mat_sr02(iEn) = -2*ki_arr(iEn).*renorm*coef*C02*radIntegral(0, 2, ki_arr(iEn), kp)*pi; 
+    T_mat_sr02(iEn) = -2*dipole_conversion*renorm*coef*C02*radIntegral(0, 2, ki_arr(iEn), kp)*pi; 
+    
+    T_mat_sr22(iEn) = -2*dipole_conversion*renorm*coef*C22*radIntegral(2, 2, ki_arr(iEn), kp)*pi; 
+    %T_mat_sr22(iEn) = -2*ki_arr(iEn)*renorm*coef*C22*radIntegral2(2, 2); 
+    
+    T_mat_sr24(iEn) = -2*dipole_conversion*renorm*coef*C24*radIntegral(2, 4, ki_arr(iEn), kp)*pi; 
+    %T_mat_sr24(iEn) = -2*ki_arr(iEn)*renorm*coef*C24*radIntegral2(2, 4); 
+end 
+
+% T_mat_ex02 = -2*ki_arr.*renorm*coef*C02*radIntegral(0,2); 
+% T_mat_ex22 = -2*ki_arr.*renorm*coef*C22*radIntegral(2,2); 
+% T_mat_ex24 = -2*ki_arr.*renorm*coef*C24*radIntegral(2,4); 
 % %% 
 % T_mat_ex = -2*ki_arr.*coef*C*radIntegral(l,lp); 
 % %% 
@@ -200,21 +222,38 @@ cg = sum * sqrt(2*j3+1);
 
 end
 
-function radialComponent = radIntegral(l, lp)
-numerator = pi*gamma((l+lp)/2);
-denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
-radialComponent = numerator/denominator; 
+% function radialComponent = radIntegral(l, lp)
+% numerator = pi*gamma((l+lp)/2);
+% denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
+% radialComponent = numerator/denominator; 
+% end 
+
+function radComponent = radIntegral(l, lp, k, kp)
+numerator = k^(l+1/2)*gamma((l+lp)/2)*hypergeom([(l+lp)/2, (l-lp-1)/2], l+3/2, (k/kp)^2); 
+denominator = 4*kp^(l-1/2)*gamma((-l+lp+3)/2)*gamma(l+3/2);
+radComponent = numerator / denominator; 
 end 
 
-% function angIntegral = ang_integral(li, lf, mi, mf) 
-% % thrj(j1d,j2d,j3d,m1d,m2d,m3d)
-% 
-% q = mi-mf; 
-% angIntegral = sqrt((li+1)*(lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
-% end 
+function radialComponent2 = radIntegral2(l, lp)
+numerator = pi*gamma((l+lp)/2);
+denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
+radialComponent2 = numerator/denominator; 
+end
+
+function radialComponent3 = radIntegral3(l, lp, k, kp)
+
+kmin = min(k, kp);
+kmax = max(k, kp);
+
+prefactor = pi/8 * gamma((l+lp)/2) / ...
+    ( gamma((-l+lp+3)/2) * gamma((l+lp+4)/2) * gamma((l-lp+3)/2) );
+
+radialComponent3 = prefactor * (kmin / kmax)^l;
+
+end
 
 function angComponent = cll(l,lp,mi, mf)
 q = mi-mf; 
-angComponent = (-1)^mi*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*mi,q,2*mf)*thrj(2*l,4,2*lp,0,0,0);
+angComponent = (-1)^mi*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*mi,2*q,2*mf)*thrj(2*l,4,2*lp,0,0,0);
 
 end 

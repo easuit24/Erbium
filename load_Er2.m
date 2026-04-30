@@ -84,7 +84,8 @@ end
 
 %  now modify a single one, of your choice
 
-rng('shuffle')
+%rng('shuffle')
+rng(42);
 Ombarchange = (j1+j2-3); % choose a given curve here  
 SRcoef(Ombarchange+1,Ombarchange+1)
 De = MeanDe + DeltaDe*(rand-0.5);
