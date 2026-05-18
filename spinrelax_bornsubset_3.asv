@@ -7,13 +7,13 @@ lp = 2;
 
 
 m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
-mp = 4; % doubled
+mp = 2; % doubled
 % incident spins 
 m1 = -10; % doubled
 m2 = -10; % doubled 
 % outgoing spins 
 m1p = -12; % doubled
-m2p = -12; % doubled
+m2p = -10; % doubled
 j_atom = 6; 
 
 energies = logspace(-16,-12, 10); 
@@ -33,9 +33,7 @@ C = cll(l, lp, m/2, mp/2);
 C02 = cll(0, 2, m/2, mp/2); 
 C22 = cll(2, 2, m/2, mp/2); 
 C24 = cll(2, 4, m/2, mp/2); 
-renorm = sqrt(2); % this is sqrt(2) when m1p != m2p
-renorm  = 1; % this is 1 for when m1p = m2p
-
+renorm = sqrt(2); 
 
 
 Eshift = gfactor * muB * BField * ((m1 + m2) - (m1p + m2p)) / 2;
@@ -45,7 +43,7 @@ nonRadComponent24 = -2*ki_arr.*renorm*coef*C24;
 T_mat_sr24 = zeros(size(energies));
 T_mat_sr22 = zeros(size(energies));
 for iEn = 1:length(energies)
-    kp = sqrt(2*mass*(Eshift+energies(iEn)))/hbar^2; 
+    kp = sqrt(2*mass*(Eshift+energies(iEn)))/hbar*dipole_conversion; 
     %kp = ki_arr(iEn);
     %kp_arr(iEn) = sqrt(2*mass*(Eshift+energies(iEn)))/hbar; 
     %kp_arr(iEn) = ki_arr(iEn);
@@ -69,11 +67,9 @@ for iEn = 1:length(energies)
     T_mat_sr24(iEn) = -pi*renorm*coef*C24*radIntegral(2,4, ki_arr(iEn), kp); 
 
     % try with the cutoff integral 
-    besselIntegral02 = integral(@(R) TmatIntegral(R,0,2,ki_arr(iEn),kp), 0, inf, 'ArrayValued', true);
     besselIntegral22 = integral(@(R) TmatIntegral(R,2,2,ki_arr(iEn),kp), 0, inf, 'ArrayValued', true);
     besselIntegral24 = integral(@(R) TmatIntegral(R,2,4,ki_arr(iEn),kp), 0, inf, 'ArrayValued', true);
 
-    T_mat_sr02(iEn) = -pi*dipole_conversion*renorm*coef*C02*besselIntegral02;
     T_mat_sr22(iEn) = -pi*dipole_conversion*renorm*coef*C22*besselIntegral22; 
     T_mat_sr24(iEn) = -pi*dipole_conversion*renorm*coef*C24*besselIntegral24; 
 end 

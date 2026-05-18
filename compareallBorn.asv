@@ -1,86 +1,83 @@
 % This file is implements the Born approximation according to the paper
 % Bohn et. al. 2009
-
+% Elastic Scattering: 
 l = 0; 
 lp = 2; 
 m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
 mp = 0; 
-% incident spins 
 m1 = -10;
 m2 = -10; 
-% outgoing spins 
-m1p = -8;
-m2p = -12; 
 j_atom = 6; 
 
-energies = logspace(-18,-12, 10); 
+
+energies = logspace(-16,-12, 10); 
+
+dipole_conversion = 2 * mass * (gfactor * muB)^2 / hbar^2;
+
+ki_arr = sqrt(2*mass*energies./hbar^2)*dipole_conversion;
+reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
+
+dipole_length = mass*(gfactor*muB*m) ...
+                  *(gfactor*muB*m);
+
+% radial component given by Gamma
+G = 32/(3*(l+1)*(l+2));
+
+% angular component given by C and 3-j symbols 
+C = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
+coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,0,0,0)*thrj(2*j_atom, 2, 2*j_atom, -m1, 0, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2, 0, m2); 
+
+T_mat = -2*ki_arr.*coef*C*radIntegral(l,lp); 
+
+sigma = 2*pi./(ki_arr).^2.*abs(T_mat).^2; 
+
+T_mat02 = -2*ki_arr.*coef*cll(0,2,0)*radIntegral(0,2); 
+T_mat22 = -2*ki_arr.*coef*cll(2,2,0)*radIntegral(2,2); 
+T_mat24 = -2*ki_arr.*coef*cll(2,4,0)*radIntegral(2,4); 
+
+%% 
+% Spin Exchange
+% This file is implements the Born approximation according to the paper
+% Bohn et. al. 2009
+
+l = 2; 
+lp = 2; 
+m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
+mp = 0; 
+% incident spins 
+m1 = -8;
+m2 = -8; 
+% outgoing spins 
+m1p = -10;
+m2p = -6; 
+j_atom = 6; 
+
+energies = logspace(-16,-12, 10); 
 
 dipole_conversion = 2 * mass * (gfactor * muB)^2 / hbar^2;
 ki_arr = sqrt(2*mass*energies./hbar^2)*dipole_conversion;
 reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
 q1 = m1p - m1; 
 q2 = m2p - m2; 
-coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,q1,q2,)*thrj(2*j_atom, 2, 2*j_atom, -m1p, m1p-m1, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2p, m2p-m2, m2); 
+coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,q1,q2,-q1-q2)*thrj(2*j_atom, 2, 2*j_atom, -m1p, m1p-m1, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2p, m2p-m2, m2); 
 % ML_incident, Mtot - m1_f - m2_f
 C = cll(l, lp, m/2, mp/2); 
-T_mat_ex = -2*ki_arr.*coef*C*radIntegral(l,lp); 
-% %% 
-% T_mat_ex = -2*ki_arr.*coef*C*radIntegral(l,lp); 
-% %% 
-% % recall ki = kf 
-% for iEn = 1:length(energies)
-%     energy = energies(iEn);
-% 
-%     kf = ki; % same ingoing and outgoing wavenumber for spinex
-% 
-%     % calculate these for 3-j symbols 
-%     q1 = m1p - m1;
-%     q2 = m2p - m2;
-%     q_tot = q1 + q2;
-%     A_spin = coef; % probably get rid of this 
-% 
-%     % loop over even partial waves 
-%     %for lp = 0:4:Lmax 
-%         % C = Angular integral of spherical harmonics
-% 
-% 
-%     % for now just pick one partial wave contribution 
-%     lp = 4;     
-%     C = ang_integral(L_incident, lp, ML_incident, Mtot - m1_f - m2_f);
-% 
-%     if C == 0, continue; end
-%     Ra = radIntegral2(L_incident/2, lp/2); 
-% 
-%     %T_mat_element = dipole_conversion*A_spin * ki*C * Ra;
-%     T_mat_element = -2*ki_arr(iEn).*coef*C*radIntegral2(l,lp);
-% 
-%     % Accumulate the T-matrix squared for 
-%     T_sq = abs(T_mat_element)^2;
-% 
-% 
-%     % Store individual partial T-matricies 
-%     Lmatindex = round(lp/4) + 1;
-%     if Lmatindex <= maxLstorage
-%         T_matrix_exchange_L(iEn, Lmatindex) = ...
-%             T_matrix_exchange_L(iEn, Lmatindex) + T_sq;
-%         T_matrix_exchange_L(iEn, Lmatindex) = T_sq;
-%     end
-%     %end
-% 
-% end
-% 
-% %C = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
-% 
-% T_mat = -2*ki_arr.*coef*C*radIntegral(l,lp); 
-% T_mat22 = -2*ki_arr.*coef*cll(2,2,0)*radIntegral(2,2); 
-% T_mat24 = -2*ki_arr.*coef*cll(2,4,0)*radIntegral(2,4); 
-% 
-% 
-% %%
-% figure; 
-% loglog(energies,sigma, "LineWidth", 2)
-% xlabel("Energy")
-% ylabel("Cross Section")
+renorm = sqrt(2); % since two possible states 
+T_mat_ex = -2*ki_arr.*renorm*coef*C*radIntegral(l,lp); 
+
+
+C02 = cll(0, 2, m/2, mp/2); 
+C22 = cll(2, 2, m/2, mp/2); 
+C24 = cll(2, 4, m/2, mp/2); 
+T_mat_ex02 = -2*ki_arr.*renorm*coef*C02*radIntegral(0,2); 
+T_mat_ex22 = -2*ki_arr.*renorm*coef*C22*radIntegral(2,2); 
+T_mat_ex24 = -2*ki_arr.*renorm*coef*C24*radIntegral(2,4); 
+nonRadComponent_ex = -2*ki_arr.*renorm*coef*C02; 
+
+rad22 = radIntegral(2,2);
+rad24 = radIntegral(2,4); 
+
+
 function [ tj cg ] = thrj(j1d,j2d,j3d,m1d,m2d,m3d)
 %thrj  three-j symbol, based on the old FORTRAN version
 %   quantum numbers j1d, j2d, etc should be entered as
@@ -193,15 +190,13 @@ denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
 radialComponent = numerator/denominator; 
 end 
 
-% function angIntegral = ang_integral(li, lf, mi, mf) 
-% % thrj(j1d,j2d,j3d,m1d,m2d,m3d)
-% 
-% q = mi-mf; 
-% angIntegral = sqrt((li+1)*(lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
-% end 
+function angComponent = cll(l,lp,m)
+angComponent = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
+
+end 
 
 function angComponent = cll(l,lp,mi, mf)
 q = mi-mf; 
-angComponent = (-1)^mi*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*mi,q,2*mf)*thrj(2*l,4,2*lp,0,0,0);
+angComponent = (-1)^mi*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*mi,2*q,2*mf)*thrj(2*l,4,2*lp,0,0,0);
 
 end 

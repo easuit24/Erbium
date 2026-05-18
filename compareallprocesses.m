@@ -1,4 +1,7 @@
-% most recent spin relax numerics: 
+% This notebook aims to compare the numerics for all three processes,
+% elastic spin, spin exchange, and spin relaxation. We will run the same
+% notebook but with different m1 and m2 parameters to ensure that the same
+% calculation is being done for all three processes
 clear all 
 load_Er2
 % folderName = 'curveanalysis_onlydipole2'; 
@@ -18,7 +21,7 @@ C620 = 0;
 rstart = 4.0;  
 %rstart = 100; % try something drastic to see if that changes things 
 dr = 0.001;
-rgo = 100000.0;
+rgo = 1000000.0;
 %rgo = 1000000.0;
 %rgo = 50000; 
 Fixed_Step_Size = false;
@@ -35,8 +38,7 @@ C8mat(:) = 0;
 
 % Define Initial Boundary Condition (Infinite Hard Wall at rstart)
 ymat_initial = 1.e20*eye(numfun,numfun);
-BField = 1.0/b0; 
-BField = 0.001/b0;
+BField = 1e-6/b0;
 energies = logspace(-16,-12,10); 
 thresholds = diag(HBmat)*BField;
 maxLstorage = 11; 
@@ -49,17 +51,16 @@ Lmax = 16; % changed from L = 32 on 4/12
 m1_incident = -10;
 m2_incident = -10; 
 m1_final_target = -12; 
-m2_final_target = -10; 
+m2_final_target = -12; 
 
 L_incident = 4;
+%L_incident = 0;
+
 ML_incident = 0;
 Mtot = m1_incident + m2_incident + ML_incident;
 
-
-BField = 1.0/b0; 
-%BField = 15.495/b0; 
 maxLstorage = 11; 
-T_matrix_relax_numeric = zeros(length(energies), maxLstorage); 
+T_matrix_elastic_numeric = zeros(length(energies), maxLstorage); 
 
 incident_index = [];
 for i = 1:size(Angular_QN_ULF, 1)
@@ -131,10 +132,23 @@ for iEn = 1:length(energies)
         m2_f = QN_open(f,2);
         Lnumerics = QN_open(f,3); 
         Lphysical = Lnumerics / 2; 
-
+        is_elastic_channel = (QN_open(f,1) == m1_incident && ...
+                                      QN_open(f,2) == m2_incident);
         % target a specific transition
-        if m1_final_target == m1_f && m2_final_target == m2_f 
+        if is_elastic_channel && m1_final_target == m1_incident && m2_final_target == m2_incident
+            disp("Is Elastic")
+            S_if = Smat(is, f);
+            delta_if = (is == f); % Kronecker delta: 1 if i==f, 0 otherwise
+            T_matrix_element = delta_if - S_if;
+            T_sq = abs(T_matrix_element).^2; 
+            Lmatindex = round(Lphysical/2) + 1; 
+            if Lmatindex <= maxLstorage
+                T_matrix_elastic_numeric(iEn, Lmatindex) = ...
+                    T_matrix_elastic_numeric(iEn, Lmatindex) + T_sq;
+            end
 
+        elseif m1_final_target == m1_f && m2_final_target == m2_f 
+            
             S_if = Smat(is, f);
 
             % For inelastic scattering (i ~= f), T = -S. 
@@ -144,8 +158,8 @@ for iEn = 1:length(energies)
             Lmatindex = round(Lphysical/2) + 1; 
 
             if Lmatindex <= maxLstorage
-                T_matrix_relax_numeric(iEn, Lmatindex) = ...
-                    T_matrix_relax_numeric(iEn, Lmatindex) + T_sq;
+                T_matrix_elastic_numeric(iEn, Lmatindex) = ...
+                    T_matrix_elastic_numeric(iEn, Lmatindex) + T_sq;
             end
 
         end 
@@ -190,43 +204,32 @@ function [Smat, Kmat, QN_open, thresholds_open ] ...
     while r < rgo
         if Fixed_Step_Size == true
              % do nothing
-         
-        %else     
-        %     % --- ADAPTIVE STEP SIZE FOR DIPOLE ---
-        %     % Since C12=0 and C6=0, we use C3 to estimate curvature
-        %     V_local_est = -C3_max / r^3; 
-        % 
-        %     % If potential is very deep (negative), kinetic energy is high -> small steps
-        %     % local_E_kin = energy - V_local_est
-        % 
-        %     if (energy - V_local_est) <= 0
-        %         % Tunneling region or error
-        %         % Maintain previous dr or set small default
-        %     else   
-        %         lambda = 1/sqrt(2*mass*(energy - V_local_est));
-        %         dr = lambda/scale;
-        %     end
-        % end
-
-        %%%%% try this for spin relaxatioj
-        else
+        else     
+            % --- ADAPTIVE STEP SIZE FOR DIPOLE ---
+            % Since C12=0 and C6=0, we use C3 to estimate curvature
             V_local_est = -C3_max / r^3; 
-            open_thresh = thresholds(energy > thresholds);
-            if isempty(open_thresh)
-                max_E_kin = energy; % Fallback for elastic
-            else
-                max_E_kin = energy - min(open_thresh); 
-            end 
             
-            if (max_E_kin - V_local_est) <= 0
+            % If potential is very deep (negative), kinetic energy is high -> small steps
+            % local_E_kin = energy - V_local_est
+            
+            if (energy - V_local_est) <= 0
                 % Tunneling region or error
+                % Maintain previous dr or set small default
             else   
-                % Calculate lambda based on the FASTEST open channel
-                lambda = 1/sqrt(2*mass*(max_E_kin - V_local_est));
+                lambda = 1/sqrt(2*mass*(energy - V_local_est));
                 dr = lambda/scale;
+
+                % %%%% Try this: 
+                % dr_lambda = lambda/scale;
+                % dr_max_phys = 500.0; 
+                % 
+                % dr_max_geom = 0.1 * r; 
+                % 
+                % dr = min([dr_lambda, dr_max_phys, dr_max_geom]);
+                % %%%% end of trying to adjust the scale... maybe delete
+                % %%%% later
             end
-        end 
-        %%%%% end of spin relax debug... maybe delete later 
+        end
         
         % Propagate
         Ymat = logstep(energy, mass, r, dr, Ymat, BField, ...

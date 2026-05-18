@@ -1,41 +1,43 @@
 % This file is implements the Born approximation according to the paper
 % Bohn et. al. 2009
-
+% Elastic Scattering: 
 l = 0; 
 lp = 2; 
 m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
 mp = 0; 
-m1 = -12;
-m2 = -12; 
+m1 = -10;
+m2 = -10; 
 j_atom = 6; 
-%energies = logspace(-2,2, 10); 
-%energies = logspace(-16,-10, 10); 
-energies2 = logspace(-16,-10, 10); 
-%dipole_conversion = 2*mass * max(max(C3mat(:))) / hbar^2;
-%%% try this: 
-m1_inc = Angular_QN_ULF(incident, 1);
-m2_inc = Angular_QN_ULF(incident, 2);
-ML_inc = Angular_QN_ULF(incident, 4); 
 
-target_L_numerics = 4;
 
-d_wave_idx = find(Angular_QN_ULF(:,1) == m1_inc & ...
-                  Angular_QN_ULF(:,2) == m2_inc & ...
-                  Angular_QN_ULF(:,3) == target_L_numerics & ...
-                  Angular_QN_ULF(:,4) == ML_inc);
+lin = true; 
 
-% Extract the off-diagonal coupling between the s-wave and d-wave
-%dipole_conversion = 2*mass * abs(C3mat(d_wave_idx, incident)) / hbar^2;
+if lin
+    %dBField = 0.005; 
+    BFieldlo = 1; %10^-10
+    BFieldhi = 20;  %10
+    %numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; 
+    numBF = 50; 
+    BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); 
+    %T_matrix_numeric = zeros(numBF, maxLstorage);     
+else  
+    %dBField = 0.005; 
+    BFieldlo = -10; %10^-10
+    BFieldhi = 1;  %10
+    %numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; 
+    numBF = 50; 
+    BFields_gauss_array = logspace(BFieldlo,BFieldhi,numBF); 
+    %T_matrix_numeric = zeros(numBF, maxLstorage); 
+end
+
+
+energy = 3.0e-13;
+energy = 1e-9/t0; 
 dipole_conversion = 2 * mass * (gfactor * muB)^2 / hbar^2;
 
-%%% 
-
-
-ki_arr = sqrt(2*mass*energies2./hbar^2)*dipole_conversion;
+ki_arr = sqrt(2*mass*energy./hbar^2)*dipole_conversion*ones(numBF, 1);
 reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
 
-% define dipole length: assume they come in with the same m such that m1 =
-% m2
 dipole_length = mass*(gfactor*muB*m) ...
                   *(gfactor*muB*m);
 
@@ -44,45 +46,81 @@ G = 32/(3*(l+1)*(l+2));
 
 % angular component given by C and 3-j symbols 
 C = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
-coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,0,0,0)*thrj(2*j_atom, 2, 2*j_atom, -m1, 0, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2, 0, m2)/(m1*m2/2); 
+coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,0,0,0)*thrj(2*j_atom, 2, 2*j_atom, -m1, 0, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2, 0, m2); 
 
-%coef = sqrt(5); 
-
-T_mat = -2*ki_arr.*C*radIntegral(l,lp); 
+T_mat = -2*ki_arr.*coef*C*radIntegral(l,lp); 
 
 sigma = 2*pi./(ki_arr).^2.*abs(T_mat).^2; 
 
-% now for the other components 
-% take l = 0, l' = 4 
-T_mat22 = -ki_arr.*cll(2,2,0)*radIntegral(2,2); 
-T_mat24 = -ki_arr.*cll(2,4,0)*radIntegral(2,4); 
-%T_mat04 = -ki_arr*cll(0,4,0)*radIntegral(0,4); 
+T_mat02_low = -2*ki_arr.*coef*cll(0,2,0,0)*radIntegral(0,2); 
+T_mat22_low = -2*ki_arr.*coef*cll(2,2,0,0)*radIntegral(2,2); 
+T_mat24_low = -2*ki_arr.*coef*cll(2,4,0,0)*radIntegral(2,4); 
+
 %% 
-C3_bare = (gfactor * muB)^2; 
+% Spin Exchange
+% This file is implements the Born approximation according to the paper
+% Bohn et. al. 2009
 
-m1_stretch = -12; 
-m2_stretch = -12;
+l = 2; 
+lp = 2; 
+m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
+mp = 0; 
+% incident spins 
+m1 = -10;
+m2 = -10; 
+% outgoing spins 
+m1p = -12;
+m2p = -8; 
+j_atom = 6; 
 
-reducedmatrix = sqrt(j_atom*(j_atom+1)*(2*j_atom+1)); 
 
-coef_stretch = reducedmatrix^2 * sqrt(30) * thrj(2,2,4,0,0,0) * ...
-               thrj(2*j_atom, 2, 2*j_atom, -m1_stretch, 0, m1_stretch) * ...
-               thrj(2*j_atom, 2, 2*j_atom, -m2_stretch, 0, m2_stretch);
+lin = true; 
 
-% Calculate the Spatial Geometry (s-wave to d-wave)
-% Assuming l=0, lp=2, and m=0
-l = 0; lp = 2; m = 0;
-C_stretch = (-1)^m * sqrt((2*l+1)*(2*lp+1)) * ...
-            thrj(2*l,4,2*lp,-2*m,0,2*m) * thrj(2*l,4,2*lp,0,0,0);
+if lin
+    %dBField = 0.005; 
+    BFieldlo = 1; %10^-10
+    BFieldhi = 20;  %10
+    %numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; 
+    numBF = 50; 
+    BFields_gauss_array = linspace(BFieldlo,BFieldhi,numBF); 
+    %T_matrix_numeric = zeros(numBF, maxLstorage);     
+else  
+    %dBField = 0.005; 
+    BFieldlo = -10; %10^-10
+    BFieldhi = 1;  %10
+    %numBF = floor((BFieldhi - BFieldlo)/dBField+0.1)+1; 
+    numBF = 50; 
+    BFields_gauss_array = logspace(BFieldlo,BFieldhi,numBF); 
+    %T_matrix_numeric = zeros(numBF, maxLstorage); 
+end
 
-% Combine to get the Analytical Maximum
-C3_max_analytical = C3_bare * coef_stretch * C_stretch;
 
-%%
-figure; 
-loglog(energies,sigma, "LineWidth", 2)
-xlabel("Energy")
-ylabel("Cross Section")
+energy = 3.0e-13;
+energy = 1e-9/t0; 
+dipole_conversion = 2 * mass * (gfactor * muB)^2 / hbar^2;
+ki_arr = sqrt(2*mass*energy./hbar^2)*dipole_conversion*ones(numBF, 1);
+reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
+q1 = m1p - m1; 
+q2 = m2p - m2; 
+coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,q1,q2,-q1-q2)*thrj(2*j_atom, 2, 2*j_atom, -m1p, m1p-m1, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2p, m2p-m2, m2); 
+% ML_incident, Mtot - m1_f - m2_f
+C = cll(l, lp, m/2, mp/2); 
+renorm = sqrt(2); % since two possible states 
+T_mat_ex = -2*ki_arr.*renorm*coef*C*radIntegral(l,lp); 
+
+
+C02 = cll(0, 2, m/2, mp/2); 
+C22 = cll(2, 2, m/2, mp/2); 
+C24 = cll(2, 4, m/2, mp/2); 
+T_mat_ex02 = -2*ki_arr.*renorm*coef*C02*radIntegral(0,2); 
+T_mat_ex22 = -2*ki_arr.*renorm*coef*C22*radIntegral(2,2); 
+T_mat_ex24 = -2*ki_arr.*renorm*coef*C24*radIntegral(2,4); 
+nonRadComponent_ex = -2*ki_arr.*renorm*coef*C02; 
+
+rad22 = radIntegral(2,2);
+rad24 = radIntegral(2,4); 
+
+
 function [ tj cg ] = thrj(j1d,j2d,j3d,m1d,m2d,m3d)
 %thrj  three-j symbol, based on the old FORTRAN version
 %   quantum numbers j1d, j2d, etc should be entered as
@@ -195,7 +233,8 @@ denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
 radialComponent = numerator/denominator; 
 end 
 
-function angComponent = cll(l,lp,m)
-angComponent = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
+function angComponent = cll(l,lp,mi, mf)
+q = mi-mf; 
+angComponent = (-1)^mi*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*mi,2*q,2*mf)*thrj(2*l,4,2*lp,0,0,0);
 
 end 

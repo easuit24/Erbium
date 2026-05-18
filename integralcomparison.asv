@@ -20,14 +20,79 @@ kp = sqrt(2*mass*(Eshift+energies))/hbar;
 Rmax = 1e10;
 
 %besselIntegral = integral(@(R) TmatIntegral(R,l, lp, ki,kp) , 0, inf); 
-besselIntegral = integral(@(R) TmatIntegral(R,l,lp,ki,kp), 0, Rmax, 'ArrayValued', true);
+besselIntegral = integral(@(R) TmatIntegral(R,l,lp,ki,kp), 0, inf, 'ArrayValued', true);
 formulaIntegral = radIntegralFormula(l, lp, ki, kp); 
+formulaIntegral2 = radIntegralFormula2(l, lp, ki,kp); 
+
+% try for different l... 
+formulaIntegral02 = radIntegralFormula(0, 2, ki,kp); 
+formulaIntegral22 = radIntegralFormula(2, 2, ki,kp); 
+formulaIntegral24 = radIntegralFormula(2, 4, ki,kp);
+
+
+% check 
+besselIntegral22 = integral(@(R) TmatIntegral(R,2,2,ki,kp), 4, inf, 'ArrayValued', true);
+besselIntegral24 = integral(@(R) TmatIntegral(R,2,4,ki,kp), 4, inf, 'ArrayValued', true);
+
+
+% series expansion 
+
+%function radComponent = radIntegralFormula(l, lp, k, kp)
+% numerator = k.^(l+1/2)*gamma((l+lp)/2).*hypergeom([(l-lp-1)/2, (l+lp)/2], l+3/2, (k./kp).^2); 
+% denominator = 4*kp.^(l-1/2)*gamma((-l+lp+3)/2)*gamma(l+3/2);
+% radComponent = numerator ./ denominator; 
+% end
+
+li = 2; 
+lf = 2; 
+radremainder2 = (ki./kp).^li .* sqrt(ki.*kp)*gamma((li+lf)/2)/(4*gamma(0.5*(3+lf-li)));
+
+a = (li+lf)/2; 
+b = (li-lf-1)/2; 
+c = li+3/2; 
+z = (ki./kp).^2;
+Fseries22 = 1+a*b*z/c; 
+
+lf = 4; 
+radremainder4 = (ki./kp).^li .* sqrt(ki.*kp)*gamma((li+lf)/2)/(4*gamma(0.5*(3+lf-li)));
+
+a = (li+lf)/2; 
+b = (li-lf-1)/2; 
+c = li+3/2; 
+z = (ki./kp).^2;
+Fseries24 = 1+a*b*z/c; 
+
+fullseries22 = radremainder2.*Fseries22; 
+fullseries24 = radremainder4.*Fseries24; 
+%%
+li = 2; 
+lf = 2; 
+lf2 = 4; 
+exothermic2 = gamma((li+lf)/2)/(gamma((-li+lf+3)/2)*gamma(li+3/2));
+exothermic4 = gamma((li+lf2)/2)/(gamma((-li+lf2+3)/2)*gamma(li+3/2));
+
+elastic2 = gamma((li+lf)/2)/(gamma((-li+lf+3)/2)*gamma((li+lf+4)/2)*gamma((li-lf+3)/2));
+elastic4 = gamma((li+lf2)/2)/(gamma((-li+lf2+3)/2)*gamma((li+lf2+4)/2)*gamma((li-lf2+3)/2));
+
+
 function besselIntegrand = TmatIntegral(R, li, lf, ki, kf)
     %besselIntegral = SphericalBesselJ(li+1/2, ki*R)*....
         %SphericalBesselJ(lf+1/2, kf*R)/R^2; 
 
-    besselIntegrand = besselj(li, ki.*R).*besselj(lf,kf.*R)*2.*sqrt(ki.*kf)/(pi.*R); 
+    besselIntegrand = besselj(li+0.5, ki.*R).*besselj(lf+0.5,kf.*R)/R^2; 
 end 
+
+% 
+% function besselIntegrand = TmatIntegral(R, li, lf, ki, kf)
+%     % Properly defining the Spherical Bessel functions to match the Mathematica prompt
+%     % j_n(z) = sqrt(pi / (2*z)) * besselj(n + 0.5, z)
+% 
+%     sph_bessel_i = sqrt(pi ./ (2 .* ki .* R)) .* besselj((li + 0.5) + 0.5, ki .* R);
+%     sph_bessel_f = sqrt(pi ./ (2 .* kf .* R)) .* besselj((lf + 0.5) + 0.5, kf .* R);
+% 
+%     % The integrand is the product of the two spherical bessels divided by R^2
+%     besselIntegrand = sph_bessel_i .* sph_bessel_f ./ (R.^2); 
+% end
 
 function radComponent2 = radIntegralFormula2(li, lf, ki, kf)
 
@@ -35,14 +100,14 @@ function radComponent2 = radIntegralFormula2(li, lf, ki, kf)
     a = 0.5 * (-2 - lf + li);
     b = (lf + li) / 2;
     c = 2 + li;
-    z = (ki^2) / (kf^2);
+    z = (ki.^2) / (kf.^2);
 
     hyper_reg = double(hypergeom([a, b], c, z)) / gamma(c);
 
     % Calculate the Numerator
     num_term1 = (ki / kf)^li;
-    num_term2 = sqrt(kf * ki);
-    num_term3 = pi;
+    num_term2 = sqrt(kf .* ki);
+    num_term3 = 1;
     num_term4 = gamma((lf + li) / 2);
     
     numerator = num_term1 * num_term2 * num_term3 * num_term4 * hyper_reg;
@@ -56,7 +121,9 @@ end
 
 
 function radComponent = radIntegralFormula(l, lp, k, kp)
-numerator = k.^(l+1/2)*gamma((l+lp)/2)*hypergeom([(l+lp)/2, (l-lp-1)/2], l+3/2, (k/kp)^2); 
+numerator = k.^(l+1/2)*gamma((l+lp)/2).*hypergeom([(l-lp-1)/2, (l+lp)/2], l+3/2, (k./kp).^2); 
 denominator = 4*kp.^(l-1/2)*gamma((-l+lp+3)/2)*gamma(l+3/2);
 radComponent = numerator ./ denominator; 
 end
+
+

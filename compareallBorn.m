@@ -1,80 +1,82 @@
 % This file is implements the Born approximation according to the paper
 % Bohn et. al. 2009
-
+% Elastic Scattering: 
 l = 0; 
+lp = 2; 
+m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
+mp = 0; 
+m1 = -10;
+m2 = -10; 
+j_atom = 6; 
+
+
+energies = logspace(-16,-12, 10); 
+
+dipole_conversion = 2 * mass * (gfactor * muB)^2 / hbar^2;
+
+ki_arr = sqrt(2*mass*energies./hbar^2)*dipole_conversion;
+reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
+
+dipole_length = mass*(gfactor*muB*m) ...
+                  *(gfactor*muB*m);
+
+% radial component given by Gamma
+G = 32/(3*(l+1)*(l+2));
+
+% angular component given by C and 3-j symbols 
+C = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
+coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,0,0,0)*thrj(2*j_atom, 2, 2*j_atom, -m1, 0, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2, 0, m2); 
+
+T_mat = -2*ki_arr.*coef*C*radIntegral(l,lp); 
+
+sigma = 2*pi./(ki_arr).^2.*abs(T_mat).^2; 
+
+T_mat02 = -2*ki_arr.*coef*cll(0,2,0,0)*radIntegral(0,2); 
+T_mat22 = -2*ki_arr.*coef*cll(2,2,0,0)*radIntegral(2,2); 
+T_mat24 = -2*ki_arr.*coef*cll(2,4,0,0)*radIntegral(2,4); 
+
+%% 
+% Spin Exchange
+% This file is implements the Born approximation according to the paper
+% Bohn et. al. 2009
+
+l = 2; 
 lp = 2; 
 m = 0; % this is the total projection of the incident partial wave, equivalent to ML_incident
 mp = 0; 
 % incident spins 
 m1 = -10;
 m2 = -10; 
-% outgoing spins: possible options are (-12,-12), (-10, -12), (-12, -10) 
+% outgoing spins 
 m1p = -12;
-m2p = -12; 
-mp_arr = ones(2,1) * [-10 -12];
+m2p = -8; 
 j_atom = 6; 
 
-energies = logspace(-16,-10, 10); 
+energies = logspace(-16,-12, 10); 
 
-dipole_conversion =  2*mass * (gfactor * muB)^2 / hbar^2;
+dipole_conversion = 2 * mass * (gfactor * muB)^2 / hbar^2;
 ki_arr = sqrt(2*mass*energies./hbar^2)*dipole_conversion;
 reducedmatrix = sqrt(jatom*(jatom+1)*(2*jatom+1)); 
-T_mat_sr = zeros(size(ki_arr)); 
-T_mat_sr_sq = zeros(size(ki_arr)); 
-% now for the varying m values: need to loop 
+q1 = m1p - m1; 
+q2 = m2p - m2; 
+coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,q1,q2,-q1-q2)*thrj(2*j_atom, 2, 2*j_atom, -m1p, m1p-m1, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2p, m2p-m2, m2); 
+% ML_incident, Mtot - m1_f - m2_f
+C = cll(l, lp, m/2, mp/2); 
+renorm = sqrt(2); % since two possible states 
+T_mat_ex = -2*ki_arr.*renorm*coef*C*radIntegral(l,lp); 
 
-BField = 1.0 / b0; 
 
-% now for the varying m values: need to loop 
-ind = 0; 
-for i = 1:length(mp_arr)
-    for j = 1:length(mp_arr) 
-        m1f = mp_arr(1,i); 
-        m2f = mp_arr(2,j); 
-        if m1f == m2f && m1f == m1
-            % exclude the elastic scattering case from this
-            continue 
-        end 
-        
-        q1 = m1f - m1; 
-        q2 = m2f - m2; 
-        coef = reducedmatrix^2*sqrt(30)*thrj(2,2,4,q1,q2,-q1-q2)*thrj(2*j_atom, 2, 2*j_atom, -m1f, m1f-m1, m1)*thrj(2*j_atom, 2, 2*j_atom, -m2f, m2f-m2, m2); 
-        
-        mp = m + (m1-m1f)+(m2-m2f); 
-        C = cll(l, lp, m/2, mp/2); 
-        
-        if ind == 1
-            continue 
-        end 
-        if m1f ~= m2f 
-            renorm = sqrt(2); 
-            ind = 1; 
-        else
-            renorm = 1; 
-        end 
-        
-        delta_E_Zeeman = gfactor * muB * BField * ((m1 + m2) - (m1f + m2f)) / 2;
+C02 = cll(0, 2, m/2, mp/2); 
+C22 = cll(2, 2, m/2, mp/2); 
+C24 = cll(2, 4, m/2, mp/2); 
+T_mat_ex02 = -2*ki_arr.*renorm*coef*C02*radIntegral(0,2); 
+T_mat_ex22 = -2*ki_arr.*renorm*coef*C22*radIntegral(2,2); 
+T_mat_ex24 = -2*ki_arr.*renorm*coef*C24*radIntegral(2,4); 
+nonRadComponent_ex = -2*ki_arr.*renorm*coef*C02; 
 
-        for iEn = 1:length(energies)
-            E_inc = energies(iEn);
-            ki = ki_arr(iEn);
-            
-            %Find outgoing kinetic energy
-            E_out = E_inc + delta_E_Zeeman;
-            
-            % Calculate kf
-            kf = sqrt(2 * mass * E_out / hbar^2) * dipole_conversion;
-            
-            rad_int = rad_integral(l, lp, ki, kf);
-            
-            %T_mat_sr(iEn) = -pi* sqrt(ki * kf) * renorm * coef * C * rad_int;
-            %T_mat_sr(iEn) = -1/pi*renorm * coef * C * rad_int;
-            T_mat_sr(iEn) = -pi*dipole_conversion*coef*C*rad_int*renorm; 
-        end
-        
-        T_mat_sr_sq = abs(T_mat_sr).^2 + T_mat_sr_sq/4; 
-    end 
-end
+rad22 = radIntegral(2,2);
+rad24 = radIntegral(2,4); 
+
 
 function [ tj cg ] = thrj(j1d,j2d,j3d,m1d,m2d,m3d)
 %thrj  three-j symbol, based on the old FORTRAN version
@@ -181,25 +183,16 @@ tj = phase * sum;
 cg = sum * sqrt(2*j3+1);
 
 end
+
+function radialComponent = radIntegral(l, lp)
+numerator = pi*gamma((l+lp)/2);
+denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
+radialComponent = numerator/denominator; 
+end 
+
+% function angComponent = cll(l,lp,m)
+% angComponent = (-1)^m*sqrt((2*l+1)*(2*lp+1))*thrj(2*l,4,2*lp,-2*m,0,2*m)*thrj(2*l,4,2*lp,0,0,0);
 % 
-% function radialComponent = radIntegral(l, lp)
-% numerator = pi*gamma((l+lp)/2);
-% denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
-% radialComponent = numerator/denominator; 
-% end 
-
-function radIntegral = rad_integral(li, lf, ki, kf)
-radIntegral = ki^(li+1/2)*gamma((li+lf)/2)/...
-    (4*kf^(li-1/2)*gamma((-li+lf+3)/2)*gamma(li+3/2))...
-    * hypergeom( [(li+lf)/2, (li-lf-1)/2], li+3/2, (ki/kf)^2);
-
-end
-
-% function angIntegral = ang_integral(li, lf, mi, mf) 
-% % thrj(j1d,j2d,j3d,m1d,m2d,m3d)
-% 
-% q = mi-mf; 
-% angIntegral = sqrt((li+1)*(lf+1)) *thrj(li, 4, lf, 0, 0 ,0)* thrj(li, 4, lf, -mi, q, mf); 
 % end 
 
 function angComponent = cll(l,lp,mi, mf)

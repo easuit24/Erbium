@@ -1,0 +1,166 @@
+clear all 
+load_Er2
+setup_mod 
+
+R_range = linspace(4, 500,500);
+H_dipole = zeros(length(R_range), length(C3mat), length(C3mat));
+energy_full = zeros(length(R_range), length(C6mat)); 
+
+for r = 1:length(R_range)
+
+    H_dipole(r, :, :) = TKmat/R_range(r)^2 + C3mat/R_range(r)^3 + 1e-4*muB*HBmat;
+    energy_full(r, :) = sort(eig(squeeze(H_dipole(r, :, :))), 'ascend') ; 
+
+    
+end
+%% 
+R_range = linspace(4,500, 500);
+diabatic_energies = zeros(length(R_range), length(C3mat)); 
+for r = 1:length(R_range)
+
+    H_dipole_d(r, :, :) = TKmat/R_range(r)^2 + C3mat/R_range(r)^3 + 1e-4*muB*HBmat;
+    diag_elements = diag(squeeze(H_dipole_d(r, :, :)));
+
+    diabatic_energies(r, :) = sort(diag_elements, 'ascend') ; 
+    
+
+
+end
+
+
+for r = 1:length(R_range)
+    H_dipole_d(r, :, :) = TKmat/R_range(r)^2 + C3mat/R_range(r)^3 + 1e-4*muB*HBmat;
+    diabatic_energies(r, :) = diag(squeeze(H_dipole_d(r, :, :)));  % no sort!
+end
+%% 
+
+targetelastic = [-10 -10];
+targetexchange = [-12 -8]; 
+targetrelax = [-12 -10]; 
+targetrelax2 = [-12 -12]; 
+
+idelastic = find(all(Angular_QN_ULF(:,1:2) == targetelastic, 2));   % indices of matching rows
+rowselastic = Angular_QN_ULF(idelastic,:); 
+
+idexchange = find(all(Angular_QN_ULF(:,1:2) == targetexchange, 2)); 
+
+idrelax = find(all(Angular_QN_ULF(:,1:2) == targetrelax, 2)); 
+idrelax2 = find(all(Angular_QN_ULF(:,1:2) == targetrelax2, 2)); 
+
+
+H_largeR = squeeze(H_dipole(end, :, :));
+[V, D] = eig(H_largeR);
+evals_largeR = diag(D);
+Vd = diag(H_largeR); 
+
+target_m1 = -10;
+target_m2 = -10;
+target_L  = 4;
+
+diab_ind = find( Angular_QN_ULF(:,1) == target_m1 & ...
+                 Angular_QN_ULF(:,2) == target_m2 & ...
+                 Angular_QN_ULF(:,3) == target_L, 1 );
+
+% For each basis state matching m1=m2=-10 (different L values)
+disp("Elastic")
+adiab_elastic_ind = zeros(length(idelastic), 1); 
+
+for i = 1:length(idelastic)
+    overlaps = abs(V(idelastic(i), :)).^2;
+    [~, adiab_idx] = max(overlaps);
+    adiab_elastic_ind(i) = adiab_idx; 
+    fprintf('m1=-10 m2=-10 L=%d  -->  adiabat index %d, energy = %g\n', ...
+        Angular_QN_ULF(idelastic(i), 3), adiab_idx, evals_largeR(adiab_idx)*t0)
+end
+disp("Exchange")
+adiab_exchange_ind = zeros(length(idexchange), 1); 
+
+for i = 1:length(idexchange)
+    overlaps = abs(V(idexchange(i), :)).^2;
+    [~, adiab_idx] = max(overlaps);
+    adiab_exchange_ind(i) = adiab_idx; 
+    fprintf('m1=-12 m2=-8 L=%d  -->  adiabat index %d, energy = %g\n', ...
+        Angular_QN_ULF(idexchange(i), 3), adiab_idx, evals_largeR(adiab_idx)*t0)
+end
+disp("Relax")
+adiab_relax_ind = zeros(length(idrelax), 1); 
+
+for i = 1:length(idrelax)
+    overlaps = abs(V(idrelax(i), :)).^2;
+    [~, adiab_idx] = max(overlaps);
+    adiab_relax_ind(i) = adiab_idx; 
+    fprintf('m1=-12 m2=-10 L=%d  -->  adiabat index %d, energy = %g\n', ...
+        Angular_QN_ULF(idrelax(i), 3), adiab_idx, evals_largeR(adiab_idx)*t0)
+end
+disp("Relax 2")
+adiab_relax2_ind = zeros(length(idrelax2), 1); 
+
+for i = 1:length(idrelax2)
+    overlaps = abs(V(idrelax2(i), :)).^2;
+    [~, adiab_idx] = max(overlaps);
+    adiab_relax2_ind(i) = adiab_idx; 
+    fprintf('m1=-12 m2=-12 L=%d  -->  adiabat index %d, energy = %g\n', ...
+        Angular_QN_ULF(idrelax2(i), 3), adiab_idx, evals_largeR(adiab_idx)*t0)
+end
+
+% figure; 
+% semilogx(R_range, energy_full(:,adiab_elastic_ind(2)),"LineWidth", 2, "DisplayName", "Incoming Channel")
+% hold on; 
+% for i = 1:3
+%     semilogx(R_range, energy_full(:,adiab_elastic_ind(i)), "DisplayName", "Elastic Channel L' = " + Angular_QN_ULF(idelastic(i),3))
+% end 
+% for i = 1:3
+%     semilogx(R_range, energy_full(:,adiab_exchange_ind(i)), "LineStyle","--", "DisplayName", "Exchange Channel L' = " + Angular_QN_ULF(idexchange(i),3))
+% end 
+% for i = 1:2
+%     semilogx(R_range, energy_full(:,adiab_relax_ind(i)), "LineStyle",":", "DisplayName", "Relax Channel L' = " + Angular_QN_ULF(idrelax(i),3))
+% end 
+% for i = 1:2
+%     semilogx(R_range, energy_full(:,adiab_relax2_ind(i)), "LineStyle",":", "DisplayName", "Relax Channel L' = " + Angular_QN_ULF(idrelax2(i),3))
+% end 
+% legend()
+
+
+%% 
+% Make the spaghetti plots 
+% figure; 
+% semilogx(R_range, energy_full(:,adiab_elastic_ind(2)),"LineWidth", 2)
+% hold on; 
+% for i = 1:length(adiab_elastic_ind)
+%     semilogx(R_range, energy_full(:,adiab_elastic_ind(i)))
+% end 
+% for i = 1:length(adiab_exchange_ind)
+%     semilogx(R_range, energy_full(:,adiab_exchange_ind(i)), "LineStyle","--")
+% end 
+% for i = 1:length(adiab_relax_ind)
+%     semilogx(R_range, energy_full(:,adiab_relax_ind(i)), "LineStyle",":")
+% end 
+% for i = 1:length(adiab_relax2_ind)
+%     semilogx(R_range, energy_full(:,adiab_relax2_ind(i)), "LineStyle",":")
+% end 
+
+
+
+%% 
+figure
+%semilogx(R_range, energy_full(:,adiab_elastic_ind(2)),"LineWidth", 2)
+semilogx(R_range, energy_full(:,adiab_elastic_ind(2))*t0,"LineWidth", 2)
+hold on
+for i = 1:length(C3mat)
+
+    semilogx(R_range, energy_full(:,i)*t0)
+end 
+xlabel('Interatomic Separation (a0)') 
+ylabel('Energy') 
+title('Full Hamiltonian')
+
+figure
+semilogx(R_range, diabatic_energies(:,diab_ind)*t0,"LineWidth", 2, "LineStyle", "--")
+
+hold on
+for i = 1:length(C3mat)
+    semilogx(R_range, diabatic_energies(:,i)*t0) 
+end 
+xlabel('Interatomic Separation (a0)') 
+ylabel('Energy') 
+title('Full Hamiltonian')

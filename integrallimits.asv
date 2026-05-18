@@ -1,0 +1,32 @@
+% integral analysis 
+
+% compare the hypergeometric formula to the ki = kf formula for ki/kf
+% also must do the bessel integral itself 
+
+kf = ones(1,20); 
+ki = logspace(-3,0, length(kf'));
+kratio = ki./kf; 
+
+besselIntegral22 = integral(@(R) TmatIntegral(R,2,2,ki,kf), 0, inf, 'ArrayValued', true, 'AbsTol', 1e-18, 'RelTol', 1e-10);
+exchangeFormula = 2*ki/pi*radIntegral(2,2); 
+relaxFormula = radIntegralFormula(2,2,ki,kf); 
+
+function radialComponent = radIntegral(l, lp)
+numerator = pi*gamma((l+lp)/2);
+denominator = 8*gamma((-l+lp+3)/2)*gamma((l+lp+4)/2)*gamma((l-lp+3)/2);
+radialComponent = numerator/denominator; 
+end
+
+function besselIntegrand = TmatIntegral(R, li, lf, ki, kf)
+    %besselIntegral = SphericalBesselJ(li+1/2, ki*R)*....
+        %SphericalBesselJ(lf+1/2, kf*R)/R^2; 
+
+    besselIntegrand = besselj(li+0.5, ki.*R).*besselj(lf+0.5,kf.*R)/R^2; 
+end 
+
+function radComponent = radIntegralFormula(l, lp, k, kp)
+    if ki > k[]
+numerator = k.^(l+1/2)*gamma((l+lp)/2).*hypergeom([(l-lp-1)/2, (l+lp)/2], l+3/2, (k./kp).^2); 
+denominator = 4*kp.^(l-1/2)*gamma((-l+lp+3)/2)*gamma(l+3/2);
+radComponent = numerator ./ denominator; 
+end

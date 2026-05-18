@@ -25,8 +25,8 @@ Lmax = 16; % previously 16 to see resonances - this was here for Born
 %Lmax = 16; % previously 16 to see resonances
 
 %Lmax = 16; 
-m1_incident = -8;
-m2_incident = -8;  
+m1_incident = -10;
+m2_incident = -10;  
 
 L_incident = 0; %previously 0
 L_incident = 4; % now try starting at d-wave (as of 3/17) 
